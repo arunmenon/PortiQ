@@ -1,0 +1,557 @@
+{
+  "currentPhase": "0.1",
+  "visionMapping": {
+    "0.x": "INFRASTRUCTURE - Foundation required before vision layers",
+    "1.x": "DATA INGESTION - Vessel, port, and fleet data feeds",
+    "2.x": "PREDICTION ENGINE - Ship profiling and consumption forecasting",
+    "3.x": "ORCHESTRATION - RFQ, vendor coordination, delivery planning",
+    "4.x": "EXECUTION - Order fulfillment and document processing",
+    "5.x": "SETTLEMENT - Finance, payments, vendor scoring",
+    "6.x": "USER EXPERIENCE - Fleet manager and supplier interfaces",
+    "7.x": "HARDENING - Security, deployment, observability",
+    "8.x": "SCALE - Events, performance, polish"
+  },
+  "phases": {
+    "0.1": {
+      "name": "Database Core",
+      "description": "PostgreSQL with vector search - foundation for all data",
+      "visionLayer": "Infrastructure",
+      "adrs": [
+        "NF-001",
+        "NF-002"
+      ],
+      "validationChecklist": [
+        "PostgreSQL 16+ with extensions: pgvector, uuid-ossp, ltree (ADR-NF-001)",
+        "Row-level security enabled for tenant isolation (ADR-NF-001)",
+        "pgvector extension with HNSW index for vector search (ADR-NF-002)",
+        "Vector embeddings stored with cosine similarity (ADR-NF-002)"
+      ]
+    },
+    "0.2": {
+      "name": "Backend Architecture",
+      "description": "NestJS modular monolith with REST API",
+      "visionLayer": "Infrastructure",
+      "adrs": [
+        "NF-006",
+        "NF-007"
+      ],
+      "validationChecklist": [
+        "NestJS modular monolith with clear module boundaries (ADR-NF-006)",
+        "Inter-module communication via exported services or events (ADR-NF-006)",
+        "REST API with OpenAPI 3.0 specification (ADR-NF-007)",
+        "API versioning in URL path (/v1/) (ADR-NF-007)"
+      ]
+    },
+    "0.3": {
+      "name": "Cloud & Auth",
+      "description": "AWS infrastructure and JWT authentication",
+      "visionLayer": "Infrastructure",
+      "adrs": [
+        "NF-011",
+        "NF-015"
+      ],
+      "validationChecklist": [
+        "AWS Mumbai (ap-south-1) as primary region (ADR-NF-011)",
+        "Multi-AZ deployment for high availability (ADR-NF-011)",
+        "JWT access tokens (15min) + refresh tokens (7d) (ADR-NF-015)"
+      ]
+    },
+    "0.4": {
+      "name": "Search & Async",
+      "description": "Meilisearch for products, BullMQ for job queues",
+      "visionLayer": "Infrastructure",
+      "adrs": [
+        "NF-003",
+        "NF-008"
+      ],
+      "validationChecklist": [
+        "Meilisearch configured for product search (ADR-NF-003)",
+        "Typo-tolerant search enabled (ADR-NF-003)",
+        "BullMQ for async job processing with Redis backend (ADR-NF-008)",
+        "Separate queues per job type with retry policies (ADR-NF-008)"
+      ]
+    },
+    "1.1": {
+      "name": "Maritime Data Feeds",
+      "description": "AIS vessel tracking and port system integration (PCS1x)",
+      "visionLayer": "Data Ingestion",
+      "adrs": [
+        "FN-019",
+        "FN-020"
+      ],
+      "validationChecklist": [
+        "AIS data integration for vessel tracking (ADR-FN-019)",
+        "VesselFinder API for MVP, upgrade path to Spire (ADR-FN-019)",
+        "India PCS1x integration for port data (ADR-FN-020)",
+        "PCS1x Scope Definition addressed (ADR-FN-020)",
+        "Mandatory Compliance Steps addressed (ADR-FN-020)"
+      ]
+    },
+    "1.2": {
+      "name": "Fleet System Integration",
+      "description": "ERP/PMS connectivity and catalog data ingestion",
+      "visionLayer": "Data Ingestion",
+      "adrs": [
+        "FN-024",
+        "FN-003"
+      ],
+      "validationChecklist": [
+        "Fleet ERP integration via PunchOut protocol (ADR-FN-024)",
+        "Target ERP Systems and Integration Patterns addressed (ADR-FN-024)",
+        "Schema Mapping Strategy addressed (ADR-FN-024)",
+        "IMPA MSG API integration for catalog sync (ADR-FN-003)",
+        "CSV batch import as fallback ingestion method (ADR-FN-003)",
+        "Ingestion Cadence addressed (ADR-FN-003)",
+        "Validation Rules addressed (ADR-FN-003)"
+      ]
+    },
+    "2.1": {
+      "name": "Product Data Model",
+      "description": "IMPA codes, product schema, category hierarchy",
+      "visionLayer": "Prediction Engine",
+      "adrs": [
+        "FN-001",
+        "FN-002",
+        "FN-004"
+      ],
+      "validationChecklist": [
+        "IMPA 6-digit codes as canonical product identifiers (ADR-FN-001)",
+        "ISSA codes maintained as secondary cross-reference (ADR-FN-001)",
+        "Product attributes in JSONB with JSON Schema validation (ADR-FN-002)",
+        "Core fields in columns, extensions in specifications JSONB (ADR-FN-002)",
+        "Multi-Supplier Variant Support addressed (ADR-FN-002)",
+        "Unit Conversion System addressed (ADR-FN-002)",
+        "PostgreSQL ltree for category hierarchy (ADR-FN-004)",
+        "IMPA 2-digit prefix maps to top-level category (ADR-FN-004)",
+        "IMPA/ISSA Hierarchy Mapping addressed (ADR-FN-004)",
+        "Multi-Category Tagging addressed (ADR-FN-004)"
+      ]
+    },
+    "2.2": {
+      "name": "Catalog Extensibility",
+      "description": "JSONB custom attributes for vessel-specific needs",
+      "visionLayer": "Prediction Engine",
+      "adrs": [
+        "FN-005"
+      ],
+      "validationChecklist": [
+        "JSONB for custom product attributes per category (ADR-FN-005)",
+        "JSON Schema validation for custom attributes (ADR-FN-005)",
+        "JSONB Schema Governance addressed (ADR-FN-005)",
+        "Indexing Strategy addressed (ADR-FN-005)"
+      ]
+    },
+    "2.3": {
+      "name": "Consumption Prediction",
+      "description": "ML model for predicting vessel requirements before arrival",
+      "visionLayer": "Prediction Engine",
+      "adrs": [
+        "FN-021"
+      ],
+      "validationChecklist": [
+        "Predictive supply ML model for demand forecasting (ADR-FN-021)",
+        "Gradient boosting for prediction model (ADR-FN-021)"
+      ]
+    },
+    "3.1": {
+      "name": "Multi-tenancy",
+      "description": "Organization-scoped data with row-level security",
+      "visionLayer": "Orchestration",
+      "adrs": [
+        "FN-023",
+        "NF-018"
+      ],
+      "validationChecklist": [
+        "All data scoped to organization (tenant) (ADR-FN-023)",
+        "Roles: owner, admin, member, viewer per organization (ADR-FN-023)",
+        "Isolation Model and Access Control Strategy addressed (ADR-FN-023)",
+        "Audit Logging Specification addressed (ADR-FN-023)",
+        "PostgreSQL RLS policies for tenant data isolation (ADR-NF-018)",
+        "Tenant context via app.current_org_id session variable (ADR-NF-018)",
+        "Isolation Model Specification addressed (ADR-NF-018)",
+        "Tenant Data Export Workflow addressed (ADR-NF-018)"
+      ]
+    },
+    "3.2": {
+      "name": "Vendor Onboarding",
+      "description": "Supplier KYC and marketplace framework for port vendors",
+      "visionLayer": "Orchestration",
+      "adrs": [
+        "FN-014",
+        "FN-015"
+      ],
+      "validationChecklist": [
+        "Supplier KYC: document upload, verification workflow (ADR-FN-014)",
+        "Supplier tiers based on verification level (ADR-FN-014)",
+        "KYC Tiers by Risk Level addressed (ADR-FN-014)",
+        "Re-verification Cadence addressed (ADR-FN-014)",
+        "Medusa.js as marketplace foundation (ADR-FN-015)",
+        "Marketplace Model: Managed Marketplace addressed (ADR-FN-015)",
+        "Medusa.js Customization Strategy addressed (ADR-FN-015)"
+      ]
+    },
+    "3.3": {
+      "name": "RFQ & Bidding",
+      "description": "Pre-arrival RFQ workflow and auction types",
+      "visionLayer": "Orchestration",
+      "adrs": [
+        "FN-011",
+        "FN-012"
+      ],
+      "validationChecklist": [
+        "RFQ states: DRAFT\u2192PUBLISHED\u2192BIDDING\u2192AWARDED\u2192COMPLETED (ADR-FN-011)",
+        "All state transitions logged for audit (ADR-FN-011)",
+        "Edge Cases and Transition Handling addressed (ADR-FN-011)",
+        "Event Contracts for Integrations addressed (ADR-FN-011)",
+        "Auction types: sealed-bid, reverse, Dutch supported (ADR-FN-012)",
+        "Real-time bid updates via Socket.io (ADR-FN-012)",
+        "Auction Type Rollout Strategy addressed (ADR-FN-012)",
+        "Auction Rule Engine addressed (ADR-FN-012)"
+      ]
+    },
+    "3.4": {
+      "name": "TCO & Quote Comparison",
+      "description": "Total cost calculation and vendor scoring for selection",
+      "visionLayer": "Orchestration",
+      "adrs": [
+        "FN-013"
+      ],
+      "validationChecklist": [
+        "TCO calculation: price + shipping + duties + lead time (ADR-FN-013)",
+        "Weighted scoring across multiple criteria (ADR-FN-013)",
+        "TCO Cost Components and Transparency addressed (ADR-FN-013)",
+        "Weighting Governance addressed (ADR-FN-013)"
+      ]
+    },
+    "4.1": {
+      "name": "Order Lifecycle",
+      "description": "Order tracking from confirmation to delivery at port",
+      "visionLayer": "Execution",
+      "adrs": [
+        "FN-022",
+        "NF-005"
+      ],
+      "validationChecklist": [
+        "Order lifecycle: CREATED\u2192CONFIRMED\u2192SHIPPED\u2192DELIVERED (ADR-FN-022)",
+        "Support for partial fulfillment and split shipments (ADR-FN-022)",
+        "Partial Fulfillment, Backorders, and Cancellations addressed (ADR-FN-022)",
+        "Event Contracts and Reconciliation for Financial Accuracy addressed (ADR-FN-022)",
+        "Redis caching with TTL-based invalidation (ADR-NF-005)",
+        "Cache-aside pattern for read-heavy data (ADR-NF-005)",
+        "Cache Tiers, TTLs, and Invalidation Patterns addressed (ADR-NF-005)",
+        "Observability: Hit Rate, Latency, and Eviction Monitoring addressed (ADR-NF-005)"
+      ]
+    },
+    "4.2": {
+      "name": "Document Pipeline",
+      "description": "Document upload, OCR, and parsing for POD/invoices",
+      "visionLayer": "Execution",
+      "adrs": [
+        "FN-006",
+        "FN-007"
+      ],
+      "validationChecklist": [
+        "Multi-stage document pipeline: Upload\u2192Parse\u2192Extract\u2192Match\u2192Review (ADR-FN-006)",
+        "Documents stored in S3 with processing status tracking (ADR-FN-006)",
+        "Accuracy Targets, Human Review SLAs, and PII Handling addressed (ADR-FN-006)",
+        "Fallback Path for Low-Confidence Extraction addressed (ADR-FN-006)",
+        "Azure Document Intelligence v4.0 for OCR (ADR-FN-007)",
+        "Use prebuilt-layout model for table extraction (ADR-FN-007)",
+        "Throughput Targets, File Size Limits, and Idempotent Processing addressed (ADR-FN-007)",
+        "Structured Error Taxonomy addressed (ADR-FN-007)"
+      ]
+    },
+    "4.3": {
+      "name": "AI Quality Control",
+      "description": "LLM normalization and confidence-gated review",
+      "visionLayer": "Execution",
+      "adrs": [
+        "FN-008",
+        "FN-009",
+        "FN-010"
+      ],
+      "validationChecklist": [
+        "LLM provider abstraction (OpenAI primary, Claude fallback) (ADR-FN-008)",
+        "LLM-based product description normalization (ADR-FN-008)",
+        "Cost and Latency Budgets addressed (ADR-FN-008)",
+        "Vendor Lock-in Mitigation addressed (ADR-FN-008)",
+        "Auto-approve threshold: \u226595% confidence (ADR-FN-009)",
+        "Quick review: 80-94% confidence, full review: <80% (ADR-FN-009)",
+        "Confidence Threshold Tuning and Review Process addressed (ADR-FN-009)",
+        "Audit Trails for Manual Overrides and Feedback addressed (ADR-FN-009)",
+        "Row-by-row extraction for large document tables (ADR-FN-010)",
+        "Batched API calls to avoid timeouts (ADR-FN-010)",
+        "Partitioning, Batching, and Resource Limits addressed (ADR-FN-010)",
+        "Backfill and Reprocessing Plan addressed (ADR-FN-010)"
+      ]
+    },
+    "5.1": {
+      "name": "Embedded Finance",
+      "description": "Finance middleware and invoice processing",
+      "visionLayer": "Settlement",
+      "adrs": [
+        "FN-016",
+        "FN-017"
+      ],
+      "validationChecklist": [
+        "Embedded finance middleware with provider abstraction (ADR-FN-016)",
+        "Regulated Parties, Responsibilities, and KYC/AML Handoffs addressed (ADR-FN-016)",
+        "Risk Limits, Reconciliation, and Failure Handling addressed (ADR-FN-016)",
+        "Invoice financing workflow with TReDS integration (ADR-FN-017)",
+        "Eligibility Criteria, Risk Scoring, and Repayment Tracking addressed (ADR-FN-017)",
+        "Exception Paths: Disputes, Chargebacks, and Delayed Payments addressed (ADR-FN-017)"
+      ]
+    },
+    "5.2": {
+      "name": "TReDS Integration",
+      "description": "Invoice discounting for faster vendor settlement",
+      "visionLayer": "Settlement",
+      "adrs": [
+        "FN-018"
+      ],
+      "validationChecklist": [
+        "TReDS integration for invoice discounting (ADR-FN-018)",
+        "Certification and Onboarding Steps addressed (ADR-FN-018)",
+        "Data Mapping and Reconciliation addressed (ADR-FN-018)"
+      ]
+    },
+    "6.1": {
+      "name": "Web Foundation",
+      "description": "Next.js App Router with shadcn/ui components",
+      "visionLayer": "User Experience",
+      "adrs": [
+        "UI-001",
+        "UI-002"
+      ],
+      "validationChecklist": [
+        "Next.js 14+ with App Router (not Pages) (ADR-UI-001)",
+        "React Server Components for data fetching (ADR-UI-001)",
+        "Rendering Strategy by Route Type addressed (ADR-UI-001)",
+        "Route Segment Configuration addressed (ADR-UI-001)",
+        "shadcn/ui with Radix primitives for components (ADR-UI-002)",
+        "Tailwind CSS for styling (no CSS-in-JS) (ADR-UI-002)",
+        "Customization & Theming Approach addressed (ADR-UI-002)",
+        "Accessibility Requirements addressed (ADR-UI-002)"
+      ]
+    },
+    "6.2": {
+      "name": "Fleet Manager Portal",
+      "description": "Pre-arrival dashboard with requirement sheets and RFQ management",
+      "visionLayer": "User Experience",
+      "adrs": [
+        "UI-004",
+        "UI-011"
+      ],
+      "validationChecklist": [
+        "Buyer portal: Dashboard, RFQs, Orders, Catalog views (ADR-UI-004)",
+        "Core User Journeys addressed (ADR-UI-004)",
+        "Performance Targets addressed (ADR-UI-004)",
+        "Search autocomplete with Meilisearch backend (ADR-UI-011)",
+        "Faceted filtering by category, supplier, port (ADR-UI-011)",
+        "Search Filters Specification addressed (ADR-UI-011)",
+        "Sorting Options addressed (ADR-UI-011)"
+      ]
+    },
+    "6.3": {
+      "name": "Supplier Dashboard",
+      "description": "Vendor portal with real-time RFQ notifications",
+      "visionLayer": "User Experience",
+      "adrs": [
+        "UI-005",
+        "UI-012"
+      ],
+      "validationChecklist": [
+        "Supplier dashboard: RFQ responses, orders, analytics (ADR-UI-005)",
+        "Data Visualization Standards addressed (ADR-UI-005)",
+        "Real-Time Data Refresh Cadence addressed (ADR-UI-005)",
+        "Real-time notifications via Socket.io (ADR-UI-012)",
+        "Socket.io Redis adapter for horizontal scaling (ADR-UI-012)",
+        "Delivery Channels addressed (ADR-UI-012)",
+        "User Preferences addressed (ADR-UI-012)"
+      ]
+    },
+    "6.4": {
+      "name": "Mobile Foundation",
+      "description": "React Native Expo for vessel/field use with offline sync",
+      "visionLayer": "User Experience",
+      "adrs": [
+        "UI-006",
+        "UI-007"
+      ],
+      "validationChecklist": [
+        "React Native with Expo managed workflow (ADR-UI-006)",
+        "Zustand for mobile state management (ADR-UI-006)",
+        "Native Module Requirements addressed (ADR-UI-006)",
+        "Ejection Criteria addressed (ADR-UI-006)",
+        "Offline-first with expo-sqlite local cache (ADR-UI-007)",
+        "Background sync when connectivity restored (ADR-UI-007)",
+        "Sync Strategy addressed (ADR-UI-007)",
+        "Conflict Resolution addressed (ADR-UI-007)"
+      ]
+    },
+    "6.5": {
+      "name": "State & Theming",
+      "description": "React Query, Zustand, and design tokens",
+      "visionLayer": "User Experience",
+      "adrs": [
+        "UI-003",
+        "UI-009"
+      ],
+      "validationChecklist": [
+        "React Query for server state management (ADR-UI-003)",
+        "Zustand for client state (cart, UI preferences) (ADR-UI-003)",
+        "Server State vs Client State Boundaries addressed (ADR-UI-003)",
+        "Caching Policies by Data Type addressed (ADR-UI-003)",
+        "AI Conversation State management with PortiQ store (ADR-UI-003)",
+        "Design tokens for consistent theming (ADR-UI-009)",
+        "Light/dark mode support (ADR-UI-009)",
+        "Token Taxonomy addressed (ADR-UI-009)",
+        "Theme Change Governance addressed (ADR-UI-009)",
+        "PortiQ AI Component Library integrated (ADR-UI-009)"
+      ]
+    },
+    "6.6": {
+      "name": "PortiQ AI Experience",
+      "description": "AI-native conversation-first UX with voice input",
+      "visionLayer": "User Experience",
+      "adrs": [
+        "UI-013",
+        "UI-014",
+        "UI-015",
+        "UI-016"
+      ],
+      "validationChecklist": [
+        "Conversation-first buyer interface with Command Bar (ADR-UI-013)",
+        "Two-panel layout: Conversation + Context Panel (ADR-UI-013)",
+        "Document drop zone with AI processing states (ADR-UI-013)",
+        "AI-assisted RFQ creation and quote comparison (ADR-UI-013)",
+        "Target: Time to first RFQ < 2 minutes (ADR-UI-013)",
+        "AI-prefilled quote forms for suppliers (ADR-UI-014)",
+        "Win probability display with optimization options (ADR-UI-014)",
+        "Quote optimization strategies: aggressive, balanced, premium (ADR-UI-014)",
+        "Target: Time to quote < 3 minutes (ADR-UI-014)",
+        "Command Bar as unified interaction point (ADR-UI-015)",
+        "Voice input via Web Speech API (web) and expo-speech (mobile) (ADR-UI-015)",
+        "Natural language intent classification (ADR-UI-015)",
+        "Target: Voice input adoption > 30% (ADR-UI-015)",
+        "Proactive intelligence with predictive suggestions (ADR-UI-016)",
+        "Restocking alerts and anomaly detection (ADR-UI-016)",
+        "PortiQ Suggests cards with actionable recommendations (ADR-UI-016)",
+        "Target: Zero-click completions > 40% (ADR-UI-016)"
+      ]
+    },
+    "7.1": {
+      "name": "Deployment Infrastructure",
+      "description": "ECS Fargate and S3 storage for documents",
+      "visionLayer": "Hardening",
+      "adrs": [
+        "NF-012",
+        "NF-013"
+      ],
+      "validationChecklist": [
+        "ECS Fargate for container orchestration (ADR-NF-012)",
+        "Auto-scaling based on CPU/memory thresholds (ADR-NF-012)",
+        "ECS vs EKS Decision Matrix addressed (ADR-NF-012)",
+        "Autoscaling Policies addressed (ADR-NF-012)",
+        "S3 bucket structure: documents/, exports/, assets/ (ADR-NF-013)",
+        "Presigned URLs for secure direct uploads (ADR-NF-013)",
+        "Bucket Layout Strategy addressed (ADR-NF-013)",
+        "Lifecycle Policies addressed (ADR-NF-013)"
+      ]
+    },
+    "7.2": {
+      "name": "API Security",
+      "description": "Rate limiting, WAF, and encryption",
+      "visionLayer": "Hardening",
+      "adrs": [
+        "NF-016",
+        "NF-017"
+      ],
+      "validationChecklist": [
+        "API rate limiting: 100 req/min standard, 1000 req/min premium (ADR-NF-016)",
+        "AWS WAF for DDoS protection (ADR-NF-016)",
+        "Per-Tenant Rate Limit Policy addressed (ADR-NF-016)",
+        "Burst Handling addressed (ADR-NF-016)",
+        "Data encryption: TLS 1.3 in transit, AES-256 at rest (ADR-NF-017)",
+        "AWS KMS with envelope encryption for sensitive data (ADR-NF-017)",
+        "Encryption Scope addressed (ADR-NF-017)",
+        "Key Management Ownership addressed (ADR-NF-017)"
+      ]
+    },
+    "7.3": {
+      "name": "DevOps & Observability",
+      "description": "CI/CD pipeline and monitoring stack",
+      "visionLayer": "Hardening",
+      "adrs": [
+        "NF-019",
+        "NF-020"
+      ],
+      "validationChecklist": [
+        "OpenTelemetry for distributed tracing (ADR-NF-019)",
+        "Structured logging to CloudWatch (ADR-NF-019)",
+        "Logging Standards addressed (ADR-NF-019)",
+        "Metrics Standards addressed (ADR-NF-019)",
+        "GitHub Actions for CI/CD pipeline (ADR-NF-020)",
+        "Blue-green deployments with automatic rollback (ADR-NF-020)",
+        "Pipeline Stages addressed (ADR-NF-020)",
+        "Security Scanning addressed (ADR-NF-020)"
+      ]
+    },
+    "8.1": {
+      "name": "Event Architecture",
+      "description": "Event-driven communication and saga patterns",
+      "visionLayer": "Scale",
+      "adrs": [
+        "NF-009",
+        "NF-010"
+      ],
+      "validationChecklist": [
+        "Event-driven communication between modules (ADR-NF-009)",
+        "Outbox pattern for reliable event publishing (ADR-NF-009)",
+        "Event Contract Ownership addressed (ADR-NF-009)",
+        "Schema Versioning Strategy addressed (ADR-NF-009)",
+        "Saga pattern for distributed transactions (ADR-NF-010)",
+        "Compensating transactions for failure recovery (ADR-NF-010)",
+        "Orchestration vs Choreography Decision addressed (ADR-NF-010)",
+        "Compensation Steps by Workflow addressed (ADR-NF-010)"
+      ]
+    },
+    "8.2": {
+      "name": "Performance & Analytics",
+      "description": "TimescaleDB for port call analytics and CloudFront CDN",
+      "visionLayer": "Scale",
+      "adrs": [
+        "NF-004",
+        "NF-014"
+      ],
+      "validationChecklist": [
+        "TimescaleDB for time-series analytics (ADR-NF-004)",
+        "Hypertables for time-partitioned data (ADR-NF-004)",
+        "Retention and Compression Policies addressed (ADR-NF-004)",
+        "Capacity Planning addressed (ADR-NF-004)",
+        "CloudFront CDN for static assets and images (ADR-NF-014)",
+        "Cache headers for optimal CDN performance (ADR-NF-014)",
+        "Cache Key Rules addressed (ADR-NF-014)",
+        "Invalidation Strategy addressed (ADR-NF-014)"
+      ]
+    },
+    "8.3": {
+      "name": "Mobile Polish & Accessibility",
+      "description": "Catalog caching and WCAG compliance",
+      "visionLayer": "Scale",
+      "adrs": [
+        "UI-008",
+        "UI-010"
+      ],
+      "validationChecklist": [
+        "Mobile catalog caching with delta sync (ADR-UI-008)",
+        "Cache Invalidation Strategy addressed (ADR-UI-008)",
+        "Storage Budget addressed (ADR-UI-008)",
+        "WCAG 2.1 AA accessibility compliance (ADR-UI-010)",
+        "ARIA labels for screen reader support (ADR-UI-010)",
+        "Target WCAG Level addressed (ADR-UI-010)",
+        "Testing Tooling addressed (ADR-UI-010)"
+      ]
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/arunmenon/projects/ship-manager/Ship/adr/scripts/phase-validator.sh context"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/arunmenon/projects/ship-manager/Ship/adr/scripts/phase-validator.sh validate"
+          }
+        ]
+      }
+    ]
+  }
+}
