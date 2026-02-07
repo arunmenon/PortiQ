@@ -1,0 +1,172 @@
+import enum
+
+
+class OrganizationType(str, enum.Enum):
+    BUYER = "BUYER"
+    SUPPLIER = "SUPPLIER"
+    BOTH = "BOTH"
+    PLATFORM = "PLATFORM"
+
+
+class MembershipStatus(str, enum.Enum):
+    INVITED = "INVITED"
+    ACTIVE = "ACTIVE"
+
+
+class UserStatus(str, enum.Enum):
+    ACTIVE = "ACTIVE"
+    SUSPENDED = "SUSPENDED"
+    PENDING = "PENDING"
+
+
+class OrganizationStatus(str, enum.Enum):
+    ACTIVE = "ACTIVE"
+    SUSPENDED = "SUSPENDED"
+
+
+class UserRole(str, enum.Enum):
+    OWNER = "OWNER"
+    ADMIN = "ADMIN"
+    MEMBER = "MEMBER"
+    VIEWER = "VIEWER"
+
+
+class CategoryStatus(str, enum.Enum):
+    ACTIVE = "ACTIVE"
+    DEPRECATED = "DEPRECATED"
+    PENDING_MIGRATION = "PENDING_MIGRATION"
+    ARCHIVED = "ARCHIVED"
+
+
+class UnitType(str, enum.Enum):
+    QUANTITY = "QUANTITY"
+    VOLUME = "VOLUME"
+    WEIGHT = "WEIGHT"
+    LENGTH = "LENGTH"
+
+
+class TagType(str, enum.Enum):
+    RELATED = "RELATED"
+    ALSO_IN = "ALSO_IN"
+    SUBSTITUTE = "SUBSTITUTE"
+    ACCESSORY = "ACCESSORY"
+
+
+class TagSource(str, enum.Enum):
+    MANUAL = "MANUAL"
+    ML_MODEL = "ML_MODEL"
+    IMPA_MAPPING = "IMPA_MAPPING"
+
+
+class SchemaStatus(str, enum.Enum):
+    DRAFT = "DRAFT"
+    ACTIVE = "ACTIVE"
+    DEPRECATED = "DEPRECATED"
+
+
+class SupplierTier(str, enum.Enum):
+    PENDING = "PENDING"
+    BASIC = "BASIC"
+    VERIFIED = "VERIFIED"
+    PREFERRED = "PREFERRED"
+    PREMIUM = "PREMIUM"
+
+
+class OnboardingStatus(str, enum.Enum):
+    STARTED = "STARTED"
+    DOCUMENTS_PENDING = "DOCUMENTS_PENDING"
+    DOCUMENTS_SUBMITTED = "DOCUMENTS_SUBMITTED"
+    VERIFICATION_IN_PROGRESS = "VERIFICATION_IN_PROGRESS"
+    VERIFICATION_PASSED = "VERIFICATION_PASSED"
+    VERIFICATION_FAILED = "VERIFICATION_FAILED"
+    MANUAL_REVIEW_PENDING = "MANUAL_REVIEW_PENDING"
+    MANUAL_REVIEW_IN_PROGRESS = "MANUAL_REVIEW_IN_PROGRESS"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    SUSPENDED = "SUSPENDED"
+
+
+class KycDocumentType(str, enum.Enum):
+    GST_CERTIFICATE = "GST_CERTIFICATE"
+    PAN_CARD = "PAN_CARD"
+    ADDRESS_PROOF = "ADDRESS_PROOF"
+    INCORPORATION_CERT = "INCORPORATION_CERT"
+    BANK_STATEMENT = "BANK_STATEMENT"
+    REFERENCE_LETTER = "REFERENCE_LETTER"
+    AUDITED_FINANCIALS = "AUDITED_FINANCIALS"
+    INSURANCE_CERTIFICATE = "INSURANCE_CERTIFICATE"
+    QUALITY_CERTIFICATION = "QUALITY_CERTIFICATION"
+    DIRECTOR_ID = "DIRECTOR_ID"
+
+
+class KycDocumentStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    VERIFIED = "VERIFIED"
+    REJECTED = "REJECTED"
+    EXPIRED = "EXPIRED"
+
+
+class ReviewAction(str, enum.Enum):
+    SUBMITTED_FOR_REVIEW = "SUBMITTED_FOR_REVIEW"
+    REVIEW_STARTED = "REVIEW_STARTED"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    SUSPENDED = "SUSPENDED"
+    REACTIVATED = "REACTIVATED"
+    TIER_UPGRADE_REQUESTED = "TIER_UPGRADE_REQUESTED"
+    TIER_UPGRADED = "TIER_UPGRADED"
+
+
+# ── Phase 1.1: Maritime Data Feeds ────────────────────────────────────────
+
+
+class VesselType(str, enum.Enum):
+    BULK_CARRIER = "BULK_CARRIER"
+    CONTAINER = "CONTAINER"
+    TANKER = "TANKER"
+    GENERAL_CARGO = "GENERAL_CARGO"
+    PASSENGER = "PASSENGER"
+    RO_RO = "RO_RO"
+    OFFSHORE = "OFFSHORE"
+    FISHING = "FISHING"
+    TUG = "TUG"
+    OTHER = "OTHER"
+
+
+class VesselStatus(str, enum.Enum):
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
+    DECOMMISSIONED = "DECOMMISSIONED"
+
+
+class NavigationStatus(str, enum.Enum):
+    UNDER_WAY = "UNDER_WAY"
+    AT_ANCHOR = "AT_ANCHOR"
+    NOT_UNDER_COMMAND = "NOT_UNDER_COMMAND"
+    RESTRICTED_MANOEUVRABILITY = "RESTRICTED_MANOEUVRABILITY"
+    MOORED = "MOORED"
+    AGROUND = "AGROUND"
+    FISHING = "FISHING"
+    UNDER_WAY_SAILING = "UNDER_WAY_SAILING"
+    UNKNOWN = "UNKNOWN"
+
+
+class PortCallStatus(str, enum.Enum):
+    APPROACHING = "APPROACHING"
+    ARRIVED = "ARRIVED"
+    BERTHED = "BERTHED"
+    DEPARTED = "DEPARTED"
+    CANCELLED = "CANCELLED"
+
+
+class AisProvider(str, enum.Enum):
+    VESSEL_FINDER = "VESSEL_FINDER"
+    PCS1X = "PCS1X"
+    MANUAL = "MANUAL"
+
+
+class EventStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
