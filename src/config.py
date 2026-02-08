@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     vessel_position_cache_ttl: int = 300
     vessel_eta_cache_ttl: int = 900
 
+    # RFQ & Bidding
+    rfq_auto_close_poll_seconds: int = 60
+    rfq_draft_ttl_days: int = 30
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

@@ -170,3 +170,48 @@ class EventStatus(str, enum.Enum):
     PROCESSING = "PROCESSING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+
+
+# ── Phase 3.3: RFQ & Bidding ────────────────────────────────────────────
+
+
+class RfqStatus(str, enum.Enum):
+    DRAFT = "DRAFT"
+    PUBLISHED = "PUBLISHED"
+    BIDDING_OPEN = "BIDDING_OPEN"
+    BIDDING_CLOSED = "BIDDING_CLOSED"
+    EVALUATION = "EVALUATION"
+    AWARDED = "AWARDED"
+    COMPLETED = "COMPLETED"
+    CANCELLED = "CANCELLED"
+
+
+class RfqTransitionType(str, enum.Enum):
+    PUBLISH = "PUBLISH"
+    OPEN_BIDDING = "OPEN_BIDDING"
+    CLOSE_BIDDING = "CLOSE_BIDDING"
+    START_EVALUATION = "START_EVALUATION"
+    AWARD = "AWARD"
+    COMPLETE = "COMPLETE"
+    CANCEL = "CANCEL"
+
+
+class AuctionType(str, enum.Enum):
+    SEALED_BID = "SEALED_BID"
+
+
+class QuoteStatus(str, enum.Enum):
+    DRAFT = "DRAFT"
+    SUBMITTED = "SUBMITTED"
+    REVISED = "REVISED"
+    WITHDRAWN = "WITHDRAWN"
+    AWARDED = "AWARDED"
+    REJECTED = "REJECTED"
+    EXPIRED = "EXPIRED"
+
+
+class InvitationStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    ACCEPTED = "ACCEPTED"
+    DECLINED = "DECLINED"
+    EXPIRED = "EXPIRED"

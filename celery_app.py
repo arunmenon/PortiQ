@@ -31,6 +31,10 @@ celery.conf.update(
         "src.modules.vessel.tasks.cleanup_vessel_data": {"queue": "vessel-tracking"},
         "src.modules.events.tasks.process_outbox": {"queue": "event-outbox"},
         "src.modules.events.tasks.cleanup_processed_events": {"queue": "event-outbox"},
+        "src.modules.rfq.tasks.auto_open_bidding": {"queue": "rfq-bidding"},
+        "src.modules.rfq.tasks.auto_close_bidding": {"queue": "rfq-bidding"},
+        "src.modules.rfq.tasks.auto_archive_drafts": {"queue": "rfq-bidding"},
+        "src.modules.rfq.tasks.expire_pending_invitations": {"queue": "rfq-bidding"},
     },
     # --- Reliability settings ---
     task_default_retry_delay=60,
@@ -73,6 +77,22 @@ celery.conf.update(
             "task": "src.modules.events.tasks.cleanup_processed_events",
             "schedule": crontab(hour=3, minute=30),
         },
+        "rfq-auto-open-bidding": {
+            "task": "src.modules.rfq.tasks.auto_open_bidding",
+            "schedule": settings.rfq_auto_close_poll_seconds,
+        },
+        "rfq-auto-close-bidding": {
+            "task": "src.modules.rfq.tasks.auto_close_bidding",
+            "schedule": settings.rfq_auto_close_poll_seconds,
+        },
+        "rfq-auto-archive-drafts": {
+            "task": "src.modules.rfq.tasks.auto_archive_drafts",
+            "schedule": crontab(hour=4, minute=0),
+        },
+        "rfq-expire-pending-invitations": {
+            "task": "src.modules.rfq.tasks.expire_pending_invitations",
+            "schedule": 300,
+        },
     },
 )
 
@@ -81,4 +101,5 @@ celery.autodiscover_tasks([
     "src.modules.supplier",
     "src.modules.vessel",
     "src.modules.events",
+    "src.modules.rfq",
 ])
