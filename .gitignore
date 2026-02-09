@@ -28,6 +28,7 @@ htmlcov/
 node_modules/
 .next/
 out/
+*.tsbuildinfo
 
 # Playwright
 .playwright-mcp/

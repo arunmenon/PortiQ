@@ -96,33 +96,71 @@ Superseded ADRs are preserved for historical reference.
 
 ## Implementation Phases
 
-### Phase 1: Foundation (12 ADRs)
-Core architecture decisions that everything else depends on:
-- NF-006 (Monolith), NF-001 (PostgreSQL), NF-011 (AWS)
-- NF-007 (API Design), NF-002 (pgvector), NF-003 (Meilisearch)
-- NF-008 (Celery), NF-015 (Auth)
-- FN-001 (IMPA), FN-002 (Product Model)
-- UI-001 (Next.js), UI-006 (React Native)
+### 0.x Infrastructure (Done: 0.1, 0.2, 0.4 | Deferred: 0.3)
+| Phase | Name | ADRs | Status |
+|-------|------|------|--------|
+| 0.1 | Database Core | NF-001, NF-002 | Done |
+| 0.2 | Backend Architecture | NF-006, NF-007 | Done |
+| 0.3 | Cloud & Auth | NF-011, NF-015 | Deferred |
+| 0.4 | Hybrid Search & Async | NF-003, NF-008 | Done |
 
-### Phase 2: MVP Features (12 ADRs)
-- FN-003, FN-006, FN-007, FN-009, FN-023
-- NF-012, NF-013
-- UI-002, UI-004, UI-007, UI-011, FN-004
+### 1.x Data Ingestion (Done: 1.1)
+| Phase | Name | ADRs | Status |
+|-------|------|------|--------|
+| 1.1 | Maritime Data Feeds | FN-019, FN-020 | Done |
+| 1.2 | Fleet System Integration | FN-024, FN-003 | Planned |
 
-### Phase 3: Marketplace (10 ADRs)
-- FN-011, FN-012, FN-013, FN-014, FN-015, FN-022
-- UI-005, UI-012
-- NF-005, NF-018
+### 2.x Prediction Engine (Done: 2.1, 2.2)
+| Phase | Name | ADRs | Status |
+|-------|------|------|--------|
+| 2.1 | Product Data Model | FN-001, FN-002, FN-004 | Done |
+| 2.2 | Catalog Extensibility | FN-005 | Done |
+| 2.3 | Consumption Prediction | FN-021 | Planned |
 
-### Phase 4: Enhancement (10 ADRs)
-- FN-016, FN-017, FN-019, FN-020
-- NF-019, NF-020, NF-016, NF-017
-- UI-009, UI-003
+### 3.x Orchestration (Done: 3.1, 3.2, 3.3, 3.4)
+| Phase | Name | ADRs | Status |
+|-------|------|------|--------|
+| 3.1 | Multi-tenancy | FN-023, NF-018 | Done |
+| 3.2 | Vendor Onboarding | FN-014, FN-015 | Done |
+| 3.3 | RFQ & Bidding | FN-011, FN-012 | Done |
+| 3.4 | TCO & Quote Comparison | FN-013 | Done |
 
-### Phase 5: Advanced (12 ADRs)
-- FN-005, FN-008, FN-010, FN-018, FN-021, FN-024
-- NF-004, NF-009, NF-010, NF-014
-- UI-008, UI-010
+### 4.x Execution (Done: 4.1, 4.2, 4.3)
+| Phase | Name | ADRs | Status |
+|-------|------|------|--------|
+| 4.1 | Order Lifecycle | FN-022, NF-005 | Done |
+| 4.2 | Document Pipeline | FN-006, FN-007 | Done |
+| 4.3 | AI Quality Control | FN-008, FN-009, FN-010 | Done |
+
+### 5.x Settlement (Planned)
+| Phase | Name | ADRs | Status |
+|-------|------|------|--------|
+| 5.1 | Embedded Finance | FN-016, FN-017 | Planned |
+| 5.2 | TReDS Integration | FN-018 | Planned |
+
+### 6.x User Experience (Done: 6.1, 6.2, 6.5, 6.6 | Superseded: 6.3)
+| Phase | Name | ADRs | Status |
+|-------|------|------|--------|
+| 6.1 | Web Foundation | UI-001, UI-002 | Done |
+| 6.2 | Fleet Manager Portal | UI-004, UI-011 | Done |
+| 6.3 | Supplier Dashboard | UI-005, UI-012 | Superseded by 6.6 |
+| 6.4 | Mobile Foundation | UI-006, UI-007 | Planned |
+| 6.5 | State & Theming | UI-003, UI-009 | Done |
+| 6.6 | PortiQ AI Experience | UI-013, UI-014, UI-015, UI-016 | Done |
+
+### 7.x Hardening (Planned)
+| Phase | Name | ADRs | Status |
+|-------|------|------|--------|
+| 7.1 | Deployment Infrastructure | NF-012, NF-013 | Planned |
+| 7.2 | API Security | NF-016, NF-017 | Planned |
+| 7.3 | DevOps & Observability | NF-019, NF-020 | Planned |
+
+### 8.x Scale (Planned)
+| Phase | Name | ADRs | Status |
+|-------|------|------|--------|
+| 8.1 | Event Architecture | NF-009, NF-010 | Planned |
+| 8.2 | Performance & Analytics | NF-004, NF-014 | Planned |
+| 8.3 | Mobile Polish & Accessibility | UI-008, UI-010 | Planned |
 
 ---
 
@@ -131,10 +169,13 @@ Core architecture decisions that everything else depends on:
 ```
 NF-006 (Monolith) ──> NF-007 (API) ──> All FN-* ADRs
 NF-001 (PostgreSQL) ──> NF-002 (pgvector) ──> FN-006 (Doc AI)
-                   ──> NF-003 (Meilisearch) ──> UI-011 (Search UX)
+                   ──> NF-003 (Hybrid Search) ──> UI-015 (Command Bar)
                    ──> FN-002 (Product Model) ──> FN-001 (IMPA)
+NF-008 (Celery) ──> FN-011 (RFQ), FN-013 (TCO)
 NF-011 (AWS) ──> NF-012 (Fargate), NF-013 (S3)
-UI-001 (Next.js) ──> UI-002 (shadcn) ──> UI-004 (Buyer Portal)
+UI-001 (Next.js) ──> UI-002 (shadcn) ──> UI-013 (PortiQ Buyer)
+                                     ──> UI-014 (PortiQ Supplier)
+UI-013 (Buyer) ──> UI-015 (Command Bar) ──> UI-016 (Proactive Intel)
 UI-006 (React Native) ──> UI-007 (Offline) ──> UI-008 (Caching)
 ```
 
