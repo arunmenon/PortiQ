@@ -6,11 +6,11 @@ A B2B maritime ship chandlery platform targeting the $95B global market. PortiQ 
 
 | Dashboard | Chat (PortiQ AI) | RFQ Create |
 |-----------|-------------------|------------|
-| ![Dashboard](portiq-01-dashboard.png) | ![Chat](portiq-15-chat-page.png) | ![RFQ Create](portiq-04-rfq-create-intelligence.png) |
+| ![Dashboard](docs/screenshots/portiq-01-dashboard.png) | ![Chat](docs/screenshots/portiq-15-chat-page.png) | ![RFQ Create](docs/screenshots/portiq-04-rfq-create-intelligence.png) |
 
 | Supplier Portal | Products | Search |
 |-----------------|----------|--------|
-| ![Supplier](portiq-05-supplier-dashboard.png) | ![Products](portiq-13-products-page.png) | ![Search](portiq-08-search-page.png) |
+| ![Supplier](docs/screenshots/portiq-05-supplier-dashboard.png) | ![Products](docs/screenshots/portiq-13-products-page.png) | ![Search](docs/screenshots/portiq-08-search-page.png) |
 
 ## Tech Stack
 

@@ -35,6 +35,7 @@ out/
 
 # Test screenshots
 test-*.png
+docs/screenshots/test-*.png
 
 # OS
 .DS_Store
