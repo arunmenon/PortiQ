@@ -1,5 +1,6 @@
 {
-  "currentPhase": "0.1",
+  "currentPhase": null,
+  "completedPhases": ["0.1", "0.2", "0.4", "1.1", "2.1", "2.2", "3.1", "3.2", "3.3", "3.4", "4.1", "4.2", "4.3", "6.1", "6.2", "6.5", "6.6"],
   "visionMapping": {
     "0.x": "INFRASTRUCTURE - Foundation required before vision layers",
     "1.x": "DATA INGESTION - Vessel, port, and fleet data feeds",
@@ -29,14 +30,14 @@
     },
     "0.2": {
       "name": "Backend Architecture",
-      "description": "NestJS modular monolith with REST API",
+      "description": "FastAPI modular monolith with REST API",
       "visionLayer": "Infrastructure",
       "adrs": [
         "NF-006",
         "NF-007"
       ],
       "validationChecklist": [
-        "NestJS modular monolith with clear module boundaries (ADR-NF-006)",
+        "FastAPI modular monolith with clear module boundaries (ADR-NF-006)",
         "Inter-module communication via exported services or events (ADR-NF-006)",
         "REST API with OpenAPI 3.0 specification (ADR-NF-007)",
         "API versioning in URL path (/v1/) (ADR-NF-007)"
@@ -45,6 +46,7 @@
     "0.3": {
       "name": "Cloud & Auth",
       "description": "AWS infrastructure and JWT authentication",
+      "status": "deferred",
       "visionLayer": "Infrastructure",
       "adrs": [
         "NF-011",
@@ -57,17 +59,18 @@
       ]
     },
     "0.4": {
-      "name": "Search & Async",
-      "description": "Meilisearch for products, BullMQ for job queues",
+      "name": "Hybrid Search & Async",
+      "description": "PostgreSQL hybrid search (FTS + trigram + vector) and Celery job processing",
       "visionLayer": "Infrastructure",
       "adrs": [
         "NF-003",
         "NF-008"
       ],
       "validationChecklist": [
-        "Meilisearch configured for product search (ADR-NF-003)",
-        "Typo-tolerant search enabled (ADR-NF-003)",
-        "BullMQ for async job processing with Redis backend (ADR-NF-008)",
+        "PostgreSQL full-text search with tsvector and GIN index (supersedes Meilisearch, ADR-NF-003)",
+        "Typo-tolerant search via pg_trgm trigram similarity (ADR-NF-003)",
+        "Hybrid search combining keyword, fuzzy, and vector results (ADR-NF-003)",
+        "Celery for async job processing with Redis backend (ADR-NF-008)",
         "Separate queues per job type with retry policies (ADR-NF-008)"
       ]
     },
@@ -354,21 +357,15 @@
     },
     "6.3": {
       "name": "Supplier Dashboard",
-      "description": "Vendor portal with real-time RFQ notifications",
+      "status": "superseded",
+      "supersededBy": "6.6",
+      "description": "Vendor portal with real-time RFQ notifications — ADRs UI-005 and UI-012 both superseded by UI-014 and UI-016, implemented in Phase 6.6",
       "visionLayer": "User Experience",
       "adrs": [
         "UI-005",
         "UI-012"
       ],
-      "validationChecklist": [
-        "Supplier dashboard: RFQ responses, orders, analytics (ADR-UI-005)",
-        "Data Visualization Standards addressed (ADR-UI-005)",
-        "Real-Time Data Refresh Cadence addressed (ADR-UI-005)",
-        "Real-time notifications via Socket.io (ADR-UI-012)",
-        "Socket.io Redis adapter for horizontal scaling (ADR-UI-012)",
-        "Delivery Channels addressed (ADR-UI-012)",
-        "User Preferences addressed (ADR-UI-012)"
-      ]
+      "validationChecklist": []
     },
     "6.4": {
       "name": "Mobile Foundation",

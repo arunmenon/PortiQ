@@ -163,223 +163,132 @@ WITH (m = 16, ef_construction = 64);
 
 ### Embedding Generation Service
 
-```typescript
-// embedding/services/embedding.service.ts
-import OpenAI from 'openai';
+```python
+# src/modules/search/embedding.py
+from openai import AsyncOpenAI
+from src.config import settings
 
-@Injectable()
-export class EmbeddingService {
-  private openai: OpenAI;
+class EmbeddingService:
+    def __init__(self):
+        self.client = AsyncOpenAI(api_key=settings.openai_api_key)
 
-  constructor(private readonly configService: ConfigService) {
-    this.openai = new OpenAI({
-      apiKey: this.configService.get('OPENAI_API_KEY')
-    });
-  }
+    async def generate_embedding(self, text: str) -> list[float]:
+        response = await self.client.embeddings.create(
+            model="text-embedding-ada-002",
+            input=text,
+        )
+        return response.data[0].embedding
 
-  async generateEmbedding(text: string): Promise<number[]> {
-    const response = await this.openai.embeddings.create({
-      model: 'text-embedding-ada-002',
-      input: text
-    });
+    async def generate_embeddings(self, texts: list[str]) -> list[list[float]]:
+        # Batch processing for efficiency
+        response = await self.client.embeddings.create(
+            model="text-embedding-ada-002",
+            input=texts,
+        )
+        return [d.embedding for d in response.data]
 
-    return response.data[0].embedding;
-  }
-
-  async generateEmbeddings(texts: string[]): Promise<number[][]> {
-    // Batch processing for efficiency
-    const response = await this.openai.embeddings.create({
-      model: 'text-embedding-ada-002',
-      input: texts
-    });
-
-    return response.data.map(d => d.embedding);
-  }
-
-  buildProductText(product: Product): string {
-    // Combine relevant fields for embedding
-    return [
-      product.name,
-      product.description,
-      product.impaCode,
-      product.category?.name,
-      ...(product.specifications
-        ? Object.values(product.specifications).map(String)
-        : [])
-    ].filter(Boolean).join(' ');
-  }
-}
+    def build_product_text(self, product) -> str:
+        # Combine relevant fields for embedding
+        parts = [
+            product.name,
+            product.description,
+            product.impa_code,
+            product.category.name if product.category else None,
+            *(str(v) for v in (product.specifications or {}).values()),
+        ]
+        return " ".join(p for p in parts if p)
 ```
 
 ### Vector Search Service
 
-```typescript
-// search/services/vector-search.service.ts
-@Injectable()
-export class VectorSearchService {
-  constructor(
-    private readonly dataSource: DataSource,
-    private readonly embeddingService: EmbeddingService
-  ) {}
+```python
+# src/modules/search/service.py
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
-  async searchSimilarProducts(
-    query: string,
-    options: VectorSearchOptions = {}
-  ): Promise<SimilarProduct[]> {
-    const {
-      limit = 10,
-      minSimilarity = 0.5,
-      categoryFilter
-    } = options;
+class VectorSearchService:
+    def __init__(self, session: AsyncSession, embedding_service: EmbeddingService):
+        self.session = session
+        self.embedding_service = embedding_service
 
-    // Generate embedding for query
-    const queryEmbedding = await this.embeddingService.generateEmbedding(query);
+    async def search_similar_products(
+        self, query: str, *, limit: int = 10, min_similarity: float = 0.5,
+        category_filter: str | None = None,
+    ) -> list[dict]:
+        query_embedding = await self.embedding_service.generate_embedding(query)
+        embedding_str = f"[{','.join(str(v) for v in query_embedding)}]"
 
-    // Perform vector similarity search
-    const results = await this.dataSource.query(`
-      SELECT
-        p.id,
-        p.impa_code,
-        p.name,
-        p.description,
-        p.category_id,
-        c.name as category_name,
-        1 - (p.embedding <=> $1::vector) as similarity
-      FROM products p
-      LEFT JOIN categories c ON p.category_id = c.id
-      WHERE p.embedding IS NOT NULL
-        AND 1 - (p.embedding <=> $1::vector) >= $2
-        ${categoryFilter ? 'AND p.category_id = $4' : ''}
-      ORDER BY p.embedding <=> $1::vector
-      LIMIT $3
-    `, [
-      `[${queryEmbedding.join(',')}]`,
-      minSimilarity,
-      limit,
-      ...(categoryFilter ? [categoryFilter] : [])
-    ]);
+        sql = text("""
+            SELECT p.id, p.impa_code, p.name, p.description, p.category_id,
+                   c.name AS category_name,
+                   1 - (p.embedding <=> :embedding::vector) AS similarity
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.id
+            WHERE p.embedding IS NOT NULL
+              AND 1 - (p.embedding <=> :embedding::vector) >= :min_sim
+              AND (:cat_filter IS NULL OR p.category_id = :cat_filter::uuid)
+            ORDER BY p.embedding <=> :embedding::vector
+            LIMIT :lim
+        """)
+        result = await self.session.execute(sql, {
+            "embedding": embedding_str,
+            "min_sim": min_similarity,
+            "lim": limit,
+            "cat_filter": category_filter,
+        })
+        return [dict(row._mapping) for row in result]
 
-    return results.map(row => ({
-      id: row.id,
-      impaCode: row.impa_code,
-      name: row.name,
-      description: row.description,
-      categoryName: row.category_name,
-      similarity: row.similarity
-    }));
-  }
-
-  async findMatchingProduct(
-    extractedItem: ExtractedLineItem
-  ): Promise<ProductMatch[]> {
-    // Build search text from extracted data
-    const searchText = [
-      extractedItem.productName,
-      extractedItem.specifications
-    ].filter(Boolean).join(' ');
-
-    // Search with higher limit for reranking
-    const candidates = await this.searchSimilarProducts(searchText, {
-      limit: 20,
-      minSimilarity: 0.4
-    });
-
-    // Rerank using additional signals
-    const reranked = await this.rerankCandidates(
-      extractedItem,
-      candidates
-    );
-
-    return reranked.slice(0, 5).map(c => ({
-      product: c,
-      confidence: this.calculateConfidence(c, extractedItem),
-      matchReason: this.explainMatch(c, extractedItem)
-    }));
-  }
-
-  private async rerankCandidates(
-    query: ExtractedLineItem,
-    candidates: SimilarProduct[]
-  ): Promise<SimilarProduct[]> {
-    // Additional scoring factors
-    return candidates.map(candidate => {
-      let boost = 0;
-
-      // Exact IMPA code match
-      if (query.impaCode && candidate.impaCode === query.impaCode) {
-        boost += 0.3;
-      }
-
-      // Unit match
-      if (query.unit && this.unitsMatch(query.unit, candidate)) {
-        boost += 0.1;
-      }
-
-      return {
-        ...candidate,
-        similarity: Math.min(candidate.similarity + boost, 1.0)
-      };
-    }).sort((a, b) => b.similarity - a.similarity);
-  }
-
-  private calculateConfidence(
-    product: SimilarProduct,
-    extracted: ExtractedLineItem
-  ): number {
-    let confidence = product.similarity;
-
-    // Adjust based on extraction confidence
-    confidence *= extracted.confidence;
-
-    // Penalize if category doesn't match expected
-    if (extracted.expectedCategory &&
-        product.categoryName !== extracted.expectedCategory) {
-      confidence *= 0.8;
-    }
-
-    return confidence;
-  }
-}
+    async def find_matching_product(self, extracted_item) -> list[dict]:
+        search_text = " ".join(
+            p for p in [extracted_item.product_name, extracted_item.specifications] if p
+        )
+        candidates = await self.search_similar_products(
+            search_text, limit=20, min_similarity=0.4,
+        )
+        reranked = self._rerank_candidates(extracted_item, candidates)
+        return [
+            {"product": c, "confidence": self._calculate_confidence(c, extracted_item)}
+            for c in reranked[:5]
+        ]
 ```
 
 ### Batch Embedding Generation Job
 
-```typescript
-// embedding/jobs/generate-embeddings.job.ts
-@Processor('embedding-generation')
-export class GenerateEmbeddingsProcessor {
-  constructor(
-    private readonly embeddingService: EmbeddingService,
-    private readonly productRepository: ProductRepository
-  ) {}
+```python
+# src/modules/search/tasks.py
+from celery import shared_task
+from sqlalchemy import text
+from src.database.engine import sync_session
 
-  @Process('batch-generate')
-  async handleBatchGenerate(job: Job<{ productIds: string[] }>) {
-    const { productIds } = job.data;
-    const batchSize = 100;
+@shared_task(bind=True, max_retries=3)
+def generate_embeddings(self, product_ids: list[str]):
+    """Celery task: batch-generate embeddings for products."""
+    from src.modules.search.embedding import EmbeddingService
+    embedding_service = EmbeddingService()
+    batch_size = 100
 
-    for (let i = 0; i < productIds.length; i += batchSize) {
-      const batch = productIds.slice(i, i + batchSize);
-      const products = await this.productRepository.findByIds(batch);
+    for i in range(0, len(product_ids), batch_size):
+        batch = product_ids[i : i + batch_size]
+        with sync_session() as session:
+            products = session.execute(
+                text("SELECT id, name, description, impa_code FROM products WHERE id = ANY(:ids)"),
+                {"ids": batch},
+            ).fetchall()
 
-      const texts = products.map(p =>
-        this.embeddingService.buildProductText(p)
-      );
+            texts = [embedding_service.build_product_text(p) for p in products]
+            embeddings = embedding_service.generate_embeddings_sync(texts)
 
-      const embeddings = await this.embeddingService.generateEmbeddings(texts);
+            for product, emb in zip(products, embeddings):
+                session.execute(
+                    text("UPDATE products SET embedding = :emb::vector WHERE id = :id"),
+                    {"emb": f"[{','.join(str(v) for v in emb)}]", "id": product.id},
+                )
+            session.commit()
 
-      // Update products with embeddings
-      await Promise.all(
-        products.map((product, idx) =>
-          this.productRepository.updateEmbedding(product.id, embeddings[idx])
+        self.update_state(
+            state="PROGRESS",
+            meta={"current": min(i + batch_size, len(product_ids)), "total": len(product_ids)},
         )
-      );
-
-      // Update job progress
-      await job.progress(Math.round((i + batchSize) / productIds.length * 100));
-    }
-  }
-}
 ```
 
 ### Query Optimization
@@ -520,18 +429,14 @@ ALTER TABLE products ADD COLUMN embedding_half halfvec(1536);
 
 ### Query-Time Tuning
 
-```typescript
-// Adjust ef_search based on use case
-async searchWithPrecision(query: string, precision: 'fast' | 'balanced' | 'accurate') {
-  const efSearch = {
-    fast: 50,      // Autocomplete
-    balanced: 100, // Default
-    accurate: 200  // Document AI matching
-  }[precision];
-
-  await this.dataSource.query(`SET LOCAL hnsw.ef_search = ${efSearch}`);
-  // ... execute search
-}
+```python
+# Adjust ef_search based on use case
+async def search_with_precision(self, query: str, precision: str = "balanced"):
+    ef_search = {"fast": 50, "balanced": 100, "accurate": 200}[precision]
+    await self.session.execute(
+        text(f"SET LOCAL hnsw.ef_search = {ef_search}")
+    )
+    # ... execute search
 ```
 
 ---

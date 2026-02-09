@@ -845,6 +845,166 @@ export function useVesselContext(vesselId: string | undefined) {
 }
 ```
 
+### RFQ Conversation Flows & Function Calling
+
+*Added 2026-02-08 based on AI-native RFQ creation research*
+
+#### RFQ Intent Classification
+
+The PortiQ Chat Service recognizes 16 RFQ-specific intents, classified client-side for fast-path routing and server-side via LLM for complex queries:
+
+| Intent | Example Utterances | Extracted Entities | Priority |
+|---|---|---|---|
+| `create_rfq` | "I need supplies for MV Star", "Create an RFQ", "Prepare provisions" | vessel_name, port, category | HIGH |
+| `add_items` | "Also add 12 safety helmets", "Include deck paint" | product, quantity, impa_code | HIGH |
+| `remove_items` | "Remove the personal items", "Take out frozen beef" | product, line_number | MEDIUM |
+| `adjust_quantity` | "Double the mooring ropes", "Increase vegetables to 60kg" | product, quantity, multiplier | HIGH |
+| `swap_item` | "Swap beef for chicken", "Replace X with Y" | original_product, replacement | MEDIUM |
+| `set_delivery` | "Delivery to Mumbai by March 20", "Port: Chennai" | port, date | HIGH |
+| `set_deadline` | "Bidding closes March 17", "Extend deadline 2 days" | date, duration | HIGH |
+| `invite_suppliers` | "Singapore suppliers only", "Add Mumbai Marine" | supplier_name, port, filter | MEDIUM |
+| `reorder` | "Same as last voyage for MV Dawn", "Reorder ORD-00198" | vessel_name, order_ref | HIGH |
+| `review_rfq` | "Show me the line items", "What's in the RFQ?" | rfq_ref | MEDIUM |
+| `publish_rfq` | "Publish it", "Send to suppliers", "Go ahead" | confirmation | HIGH |
+| `set_specifications` | "Size L for 4 crew, XL for 5" | spec_key, spec_value | LOW |
+| `bulk_adjust` | "Increase all quantities by 20%" | category, multiplier | MEDIUM |
+| `compare_options` | "Compare with last order", "What changed?" | comparison_type | LOW |
+| `cancel_draft` | "Forget it", "Cancel this RFQ" | confirmation | LOW |
+| `set_auction_type` | "Make it sealed bid", "Open auction" | auction_type | LOW |
+
+#### Entity Types
+
+| Entity Type | Examples | Extraction Method |
+|---|---|---|
+| `vessel` | "MV Ocean Star", "Pacific Dawn" | Database lookup + fuzzy match |
+| `port` | "Mumbai", "Singapore", "Chennai" | Known port list + UN/LOCODE synonyms |
+| `product` | "mooring rope", "safety helmet" | Catalog search + IMPA lookup |
+| `impa_code` | "170101", "470201" | Regex pattern `\d{6}` |
+| `quantity` | "50kg", "200 meters", "12 units" | Number + unit extraction |
+| `date` | "March 20", "next week", "in 3 days" | Date parsing (relative + absolute) |
+| `supplier` | "Mumbai Marine", "Ocean Supply" | Database lookup + fuzzy match |
+| `order_ref` | "ORD-2026-00198" | Regex pattern |
+| `rfq_ref` | "RFQ-2026-00042" | Regex pattern |
+| `category` | "deck supplies", "provisions", "safety equipment" | Catalog category hierarchy |
+
+#### LLM Function Calling Definitions
+
+The PortiQ Chat Service exposes these tools to the LLM for structured RFQ operations:
+
+```python
+PORTIQ_RFQ_TOOLS = [
+    # RFQ CRUD
+    "create_rfq(title, vessel_id, delivery_port, delivery_date, bidding_deadline, line_items)",
+    "add_line_items(rfq_id, items[{description, quantity, unit, impa_code, product_id}])",
+    "remove_line_items(rfq_id, line_item_ids)",
+    "update_line_item(rfq_id, line_item_id, {quantity, description, specifications})",
+    "set_rfq_deadline(rfq_id, deadline)",
+    "publish_rfq(rfq_id)",
+    "get_rfq_summary(rfq_id)",
+
+    # Supplier Management
+    "invite_suppliers(rfq_id, supplier_ids | port_filter | category_filter)",
+    "get_suggested_suppliers(port, categories, buyer_org_id)",
+
+    # Context & Intelligence
+    "lookup_vessel(name_or_imo)",
+    "search_products(query, category, limit)",
+    "get_consumption_prediction(vessel_id, voyage_duration, crew_size, categories)",
+    "get_last_order(vessel_id, port?)",
+    "get_price_benchmarks(impa_codes, port)",
+]
+```
+
+All mutations go through validated service endpoints. The LLM acts as an orchestration layer, deciding which functions to call based on conversation context.
+
+#### "Same as Last Time" Patterns
+
+Maritime procurement follows repeating patterns. The chat service recognizes these reorder patterns:
+
+| Pattern | Resolution |
+|---|---|
+| "Same as last time for MV X" | Look up most recent completed order for vessel X |
+| "Reorder ORD-XXXX" | Copy line items from specific order reference |
+| "Standard provisions for 22 crew, 30-day voyage" | Use consumption model to generate quantities |
+| "The usual for Mumbai" | Look up most common items ordered for Mumbai delivery |
+| "Same as MV Star's last Singapore order" | Cross-vessel, port-specific lookup |
+
+#### Conversation Flow Examples
+
+**Flow 1: Basic Provisions (Captain at Sea)**
+```
+Captain: "I need deck maintenance supplies for MV Ocean Star, arriving Mumbai March 20"
+PortiQ:  [Identifies vessel] [Shows vessel card in context panel]
+         "Based on 22 crew and 47 days since last supply, I recommend:
+          - Mooring ropes & lines (6 items)
+          - Deck paint & coatings (8 items)
+          - Cleaning supplies (5 items)
+          Est. $4,200 - $5,800"
+         [Create RFQ] [Adjust Items] [Add More Categories]
+
+Captain: "Yes, create it. Also add safety equipment. Bidding deadline March 17."
+PortiQ:  "Created RFQ-2026-00042 with 31 line items across 5 categories.
+          Selected 4 Mumbai-based suppliers from your preferred list."
+         [Publish RFQ] [Review Line Items] [Edit Suppliers]
+
+Captain: "Publish it."
+PortiQ:  "Published and sent to 4 suppliers. I'll notify you when quotes arrive."
+```
+**Time: ~90 seconds. Zero IMPA codes needed.**
+
+**Flow 2: Reorder with Adjustments (Fleet Manager)**
+```
+Manager: "Reorder the same provisions as last voyage for MV Pacific Dawn"
+PortiQ:  "Found last order from Jan 12 (52 items, $11,240, Singapore).
+          Adjusted quantities for 34-day vs 28-day voyage:
+          - Fresh vegetables: 50kg → 60kg (+20%)
+          - Drinking water: 200L → 240L (+20%)
+          Price alerts: Frozen beef +15%, SS bolts +24%"
+         [Create as-is] [Review Adjustments] [Compare Prices]
+
+Manager: "Swap frozen beef for chicken, and add 12 crew safety kits"
+PortiQ:  "Updated. Chicken saves ~$96. Safety kits: $1,740 total.
+          New estimate: $13,600 - $15,300."
+         [Create RFQ] [Review All Items]
+```
+
+**Flow 3: Multi-Vessel Bulk Operation (Fleet Manager)**
+```
+Manager: "3 crew changes in Singapore next week, need safety equipment for 12 new crew"
+PortiQ:  "I see: MV Star (ETA Feb 12, 4 crew), MV Wave (Feb 13, 5 crew),
+          MV Horizon (Feb 14, 3 crew). 12 crew × 9 items = 108 items.
+          Est. $2,400 - $3,200."
+         [Combined RFQ] [Separate RFQs] [Customize Items]
+
+Manager: "Combined RFQ, delivery to MV Star since she arrives first."
+PortiQ:  "Created with distribution note. Selected 3 Singapore safety suppliers."
+```
+
+**Flow 4: Document-Initiated (Port Agent)**
+```
+Agent: [Drops scanned PDF into chat] "Captain sent this. RFQ for Mumbai by Feb 20."
+PortiQ: "Extracted 38 items: 31 high-confidence, 5 need quick review, 2 manual.
+         Medium confidence items:
+         1. 'SS bolts 1/2 inch' → IMPA 610214? [Accept] [Change]
+         2. 'Fresh veg assorted' → IMPA 170101? [Accept] [Change]
+         ..."
+
+Agent: "Accept all high confidence. Accept 1-4, change 5 to IMPA 550305."
+PortiQ: "Updated. Created RFQ-2026-00048 with 37 items."
+```
+
+#### Form ↔ Conversation Bridge
+
+Users can seamlessly switch between conversation and form modes:
+
+| Direction | UX | Implementation |
+|---|---|---|
+| **Conversation → Form** | "Edit in Form" button in chat opens `/rfqs/create` pre-populated with conversation data | Shared draft RFQ state via backend (DRAFT status from Phase 3.3) |
+| **Form → Conversation** | "Ask PortiQ" button on form opens chat panel with form context pre-loaded | Pass current form state as initial context to chat service |
+| **Shared Draft** | Both surfaces read/write the same draft RFQ via API | RFQ DRAFT status already supports this (Phase 3.3) |
+
+The RFQ review/confirmation page (line items table, supplier selection, deadline) is always form-based regardless of creation method — this is the shared final step.
+
 ---
 
 ## Dependencies

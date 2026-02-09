@@ -1037,6 +1037,179 @@ class ProactiveNotificationService {
 export const proactiveService = new ProactiveNotificationService();
 ```
 
+### Market Intelligence During RFQ Creation
+
+*Added 2026-02-08 based on AI-native RFQ creation research*
+
+While the proactive triggers above handle push-based intelligence, the RFQ creation form also needs **pull-based intelligence** that updates reactively as the buyer fills in the form. This section specifies the Intelligence Sidebar and its data sources.
+
+#### Seven Intelligence Types
+
+| # | Intelligence Type | What It Provides | Data Sources |
+|---|---|---|---|
+| 1 | **Supplier Recommendations** | Real-time supplier match counts by port and category | `supplier_profiles.port_coverage`, `supplier_profiles.categories`, historical `quotes` |
+| 2 | **Price Benchmarks** | Historical price ranges for IMPA codes at specific ports (P25/P50/P75) | `quote_line_items.unit_price` aggregated by IMPA code x port x time window |
+| 3 | **Lead Time Insights** | Typical delivery timelines by category at specific ports | `quotes.estimated_delivery_days` aggregated by port and category |
+| 4 | **Supply Availability Signals** | Alerts about constraints, seasonal patterns, port issues | Quote response rates, supplier onboarding status, seasonal volume patterns |
+| 5 | **Historical Comparison** | Current RFQ vs buyer's own historical patterns | Previous `rfqs` by same `buyer_organization_id` filtered by port/category |
+| 6 | **Timing Optimization** | Optimal bidding windows based on supplier response patterns | `rfq_invitations` response times, quote submission patterns by day-of-week |
+| 7 | **Port-Specific Intelligence** | Port-level metrics comparing supplier ecosystems | Aggregated supplier counts, response times, quote-to-invite ratios per port |
+
+#### Intelligence Sidebar UX
+
+A collapsible right-hand panel (~30% width on desktop, bottom sheet on mobile) that updates reactively as form fields change (debounced 500ms):
+
+```
++-----------------------------+-------------------+
+|  RFQ Creation Form          |  Intelligence     |
+|                             |  Sidebar          |
+|  Title: [______________]    |                   |
+|  Vessel: [MV Pacific Star]  |  Port: Mumbai     |
+|  Port: [Mumbai ▼]           |  12 suppliers     |
+|  Deadline: [__/__/____]     |  Avg response: 1d |
+|                             |                   |
+|  Line Items:                |  -- Price Alert -- |
+|  1. IMPA 232501 Qty: 10     |  Alkyd Paint 5L   |
+|     [Est: $42-67 ea]        |  $42-$67 (90d)    |
+|  2. IMPA 271300 Qty: 5      |  12 quotes basis  |
+|     [Est: $120-185 ea]      |                   |
+|                             |  -- Suppliers --   |
+|  + Add line item            |  5 match all items |
+|                             |  3 VERIFIED+       |
+|                             |  [Auto-invite ...]|
+|                             |                   |
+|  [Save Draft] [Publish]     |  Budget est: $1.2K |
++-----------------------------+-------------------+
+```
+
+Sidebar sections appear/disappear based on form context (no port = no port insights). Cards ordered by relevance: warnings first, then recommendations, then informational.
+
+#### Inline Form Hints
+
+Small non-intrusive annotations on form fields:
+
+- **Port field:** Badge "12 suppliers | avg 1.5d response" after selection
+- **Delivery date:** Yellow warning if tight vs ETA, green check if sufficient margin
+- **Bidding deadline:** Badge "5-day window recommended (2.3x more quotes)"
+- **Line items:** Per-item price range badge, supplier availability dot (green/yellow/red)
+
+#### Risk Flag Taxonomy
+
+| Flag | Trigger | Severity |
+|------|---------|----------|
+| Single-source risk | Only 1 supplier covers all line items at this port | HIGH |
+| Tight timeline | Delivery date - vessel ETA < average lead time | HIGH |
+| No price history | >50% of line items have no historical pricing | MEDIUM |
+| Unusual quantity | Quantity > 3x standard deviation from buyer's history | MEDIUM |
+| New category | Buyer has never ordered this category before | LOW |
+| Suspended suppliers | Previously used suppliers are now suspended | MEDIUM |
+| Low response port | Historical quote-to-invite ratio < 50% at this port | MEDIUM |
+
+#### Supplier Auto-Matching Pipeline
+
+When the buyer has set at least a delivery port and one line item, the system runs a 6-stage matching pipeline:
+
+```
+Stage 1: Port Filter
+  supplier_profiles.port_coverage @> [delivery_port]
+  → Candidates pool
+
+Stage 2: Category Match
+  coverage_score = matched_categories / rfq_categories
+  Filter: coverage_score >= 30%
+  → Qualified pool
+
+Stage 3: Tier Filter
+  Default: VERIFIED+ (tier IN VERIFIED, PREFERRED, PREMIUM)
+  Fallback: If <3 candidates, include BASIC tier
+  → Eligible pool
+
+Stage 4: Performance Scoring (0-100)
+  score = (on_time_rate x 30) + (quality_score x 25) +
+          (quote_response_rate x 20) + (price_competitiveness x 15) +
+          (category_coverage x 10)
+
+Stage 5: Diversity Check
+  Ensure minimum 3 suppliers. If <3, expand port radius or lower tier.
+  Flag single-source risk if only 1-2 available.
+
+Stage 6: Ranking & Presentation
+  Sort by performance_score DESC.
+  Group: "Recommended" (top 3-5) vs "Other" (rest).
+  Pre-select top 3 by default.
+```
+
+#### Budget Estimation
+
+Running budget estimate displayed prominently, updating as line items are added:
+
+```
+Budget Estimate (based on 90-day price history)
+  Low:    $980  (P25)
+  Likely: $1,240 (P50)
+  High:   $1,680 (P75)
+Based on 47 historical quotes for similar items at Mumbai.
+3 of 8 items have no price history (excluded).
+```
+
+Uses percentile bands from historical quote data for matching IMPA codes at matching ports.
+
+#### Timing Advisor
+
+Visual timeline correlating publish date, bidding window, vessel ETA, and delivery:
+
+```
+Today        Publish     Deadline     Vessel ETA    Delivery
+  |            |            |            |             |
+  |----2d----->|----5d----->|----3d----->|-----2d----->|
+  Feb 8        Feb 10       Feb 15       Feb 18        Feb 20
+```
+
+Recommendation: "5-day bidding window historically attracts 4.2 quotes (avg). 3 days between deadline and ETA is sufficient for top 3 suppliers."
+
+#### Privacy Constraints
+
+| Data Point | Visible to Buyer | Protection |
+|---|---|---|
+| Individual supplier quotes | Never (before deadline) | Sealed-bid enforcement (ADR-FN-012) |
+| Price benchmarks | Aggregated ranges only | Minimum 3 quotes threshold; no supplier attribution |
+| Supplier names in suggestions | Yes (public profiles) | Only APPROVED suppliers with adequate visibility tier |
+| Supplier performance scores | Relative ranking only | Exact scores hidden; shown as tiers or stars |
+| Other buyers' order patterns | Never | Cross-organization aggregates only |
+
+#### Data Aggregation Infrastructure
+
+| Aggregation | Granularity | Refresh | Storage |
+|---|---|---|---|
+| Price benchmarks | IMPA code x port x 30/90/365 day windows | Daily materialized view | PostgreSQL MV |
+| Supplier match scores | Supplier x port x category | Daily batch job | Redis cache (24h TTL) |
+| Quote response metrics | Supplier x port | Daily batch job | PostgreSQL table |
+| Lead time statistics | Category x port | Weekly batch job | PostgreSQL table |
+| Port supplier counts | Port code | Real-time (on supplier profile change) | Redis cache |
+| Buyer historical patterns | Organization x route/port | Daily batch job | PostgreSQL table |
+
+#### API Design
+
+Single debounce-friendly endpoint for all intelligence:
+
+```
+GET /api/v1/intelligence
+  ?delivery_port=INMAA
+  &impa_codes=232501,271300
+  &vessel_id=<uuid>
+  &delivery_date=2026-02-20
+  &bidding_deadline=2026-02-15
+
+Response: IntelligenceResponse {
+  suppliers: { count, verified_plus_count, top_matches[] },
+  price_benchmarks: { per_item[], budget_estimate },
+  lead_times: { per_category[] },
+  risk_flags: RiskFlag[],
+  timing: { recommendation, optimal_window_days },
+  port_info: { supplier_count, avg_response_days, quote_to_invite_ratio }
+}
+```
+
 ---
 
 ## Dependencies

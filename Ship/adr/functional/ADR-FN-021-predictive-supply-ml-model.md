@@ -817,6 +817,201 @@ async function collectFeedback(portCallId: string) {
 
 ---
 
+## RFQ Creation Integration: Smart Templates & Suggestions
+
+*Added 2026-02-08 based on AI-native RFQ creation research*
+
+### Template Taxonomy
+
+Templates are organized in a three-dimensional matrix for personalized RFQ pre-filling:
+
+| Dimension | Values | Source |
+|-----------|--------|--------|
+| **Vessel Type** | BULK_CARRIER, CONTAINER, TANKER, GENERAL_CARGO, PASSENGER, RO_RO, OFFSHORE, FISHING, TUG | `VesselType` enum |
+| **Voyage Type** | COASTAL (< 7 days), SHORT_SEA (7-21 days), DEEP_SEA (> 21 days), PORT_HOPPING | Derived from port call patterns |
+| **Category Focus** | PROVISIONS, DECK, ENGINE, SAFETY, CABIN, CONSUMABLES, FULL_SUPPLY | IMPA prefix groups |
+
+### Core Templates
+
+#### By Vessel Type
+
+| Template | Vessel Type | Key IMPA Categories | Multiplier Notes |
+|----------|-------------|---------------------|------------------|
+| Tanker Safety Package | TANKER | 31, 33, 45 | 1.5x safety, chemical PPE, foam refills |
+| Bulk Carrier Deck Package | BULK_CARRIER | 21, 25, 61 | 1.3x deck, cargo hold paint, wire brushes |
+| Container Ship Essentials | CONTAINER | 21, 23, 37 | Rigging equipment, lashing gear |
+| Passenger Vessel Provisions | PASSENGER | 00, 11, 17, 55 | 2.5x provisions, tableware, cleaning |
+| Offshore Support Package | OFFSHORE | 31, 33, 71, 85 | Heavy-duty safety, welding, pipe fittings |
+
+#### By Voyage Type
+
+| Template | Voyage Type | Adjustments |
+|----------|-------------|-------------|
+| Coastal Run | < 7 days, multiple ports | Minimal provisions, deck consumables focus |
+| Ocean Crossing | > 21 days, minimal ports | Full provisions, engine spares buffer, extra safety |
+| Port-Hopping Trade | 7-21 days, 4+ port calls | Medium provisions, port-specific items |
+| Arctic/Winter Route | High latitude + winter months | Anti-freeze, heating fuel, winter clothing, de-icing |
+| Tropical Route | Low latitude | Insect repellent, extra refrigerant, lightweight PPE |
+
+#### By Event Trigger
+
+| Template | Trigger | Key Items |
+|----------|---------|-----------|
+| Dry-Docking Prep | `next_drydock_date` within 30 days | Engine overhaul spares, hull paint, anodes, valves |
+| Crew Change | Crew rotation event | Fresh provisions, cabin stores, welfare items |
+| PSC Inspection Prep | PSC-focused port + inspection due | Safety equipment service kits, medical chest refresh |
+| Annual Survey Prep | Class survey date | Classification society-required items |
+| Emergency Replenishment | `days_since_last_supply` > 45 | Critical provisions, water, fuel, medical supplies |
+
+### Extended Consumption Rate Constants
+
+Building on the base consumption rates in the Rule-Based Engine, these additional rates cover all major IMPA categories:
+
+```python
+CONSUMPTION_RATES = {
+    # Provisions (IMPA 00)
+    "00": {"base_rate": 3.5, "unit": "KG", "per": "person/day", "min_days": 7, "buffer": 1.2},
+    # Cabin Stores (IMPA 11)
+    "11": {"base_rate": 0.05, "unit": "PIECE", "per": "person/day", "min_days": 30, "buffer": 1.1},
+    # Bonded Stores (IMPA 17)
+    "17": {"base_rate": 0.02, "unit": "L", "per": "person/day", "min_days": 30, "buffer": 1.1},
+    # Deck Stores - Ropes (IMPA 21)
+    "21": {"base_rate": 0.5, "unit": "M", "per": "vessel/day", "min_days": 90, "buffer": 1.3},
+    # Deck Stores - Paint (IMPA 25)
+    "25": {"base_rate": 0.3, "unit": "L", "per": "vessel/day", "min_days": 90, "buffer": 1.2},
+    # Protective Gear (IMPA 31)
+    "31": {"base_rate": 0.02, "unit": "PIECE", "per": "person/day", "min_days": 90, "buffer": 1.3},
+    # Safety Equipment (IMPA 33)
+    "33": {"base_rate": 0.01, "unit": "PIECE", "per": "person/day", "min_days": 180, "buffer": 1.5},
+    # Nautical Instruments (IMPA 37)
+    "37": {"base_rate": 0.001, "unit": "PIECE", "per": "vessel/day", "min_days": 365, "buffer": 1.1},
+    # Medical (IMPA 39)
+    "39": {"base_rate": 0.005, "unit": "PIECE", "per": "person/day", "min_days": 180, "buffer": 1.5},
+    # Petroleum Products (IMPA 45)
+    "45": {"base_rate": 0.1, "unit": "L", "per": "vessel/day", "min_days": 90, "buffer": 1.2},
+    # Cleaning Chemicals (IMPA 55)
+    "55": {"base_rate": 0.1, "unit": "L", "per": "person/day", "min_days": 30, "buffer": 1.1},
+    # Hand Tools (IMPA 61)
+    "61": {"base_rate": 0.005, "unit": "PIECE", "per": "vessel/day", "min_days": 180, "buffer": 1.2},
+    # Engine Room (IMPA 71-77)
+    "71": {"base_rate": 0.01, "unit": "PIECE", "per": "vessel/day", "min_days": 180, "buffer": 1.3},
+    # Welding (IMPA 85)
+    "85": {"base_rate": 0.02, "unit": "KG", "per": "vessel/day", "min_days": 180, "buffer": 1.2},
+}
+```
+
+### Complete Vessel Type Multiplier Table
+
+```python
+VESSEL_TYPE_MULTIPLIERS = {
+    "TANKER": {
+        "31": 1.5, "33": 1.5, "45": 1.3,  # Safety + petroleum
+        "DEFAULT": 1.0,
+    },
+    "PASSENGER": {
+        "00": 2.5, "11": 2.0, "17": 2.0, "55": 1.5,  # Provisions + cabin + cleaning
+        "DEFAULT": 1.0,
+    },
+    "BULK_CARRIER": {
+        "25": 1.3, "61": 1.2, "21": 1.1,  # Paint + tools + deck
+        "DEFAULT": 1.0,
+    },
+    "CONTAINER": {
+        "21": 1.2, "23": 1.3,  # Rigging + lashing
+        "DEFAULT": 1.0,
+    },
+    "OFFSHORE": {
+        "31": 1.5, "33": 1.5, "85": 1.4, "71": 1.3,  # Safety + welding + engine
+        "DEFAULT": 1.1,
+    },
+    "RO_RO": {
+        "25": 1.2, "31": 1.1,  # Paint + safety
+        "DEFAULT": 1.0,
+    },
+    "FISHING": {
+        "21": 1.3, "31": 1.2, "00": 1.3,  # Deck + safety + provisions
+        "DEFAULT": 1.0,
+    },
+    "TUG": {
+        "45": 1.3, "71": 1.2,  # Petroleum + engine
+        "DEFAULT": 1.0,
+    },
+    "GENERAL_CARGO": {
+        "DEFAULT": 1.0,  # Baseline
+    },
+}
+```
+
+### Cold Start Strategy
+
+| Scenario | Strategy | Confidence Range |
+|----------|----------|------------------|
+| **New platform (no data)** | Industry-standard consumption rates + vessel type multipliers only | 0.5-0.6 |
+| **Known vessel type, no history** | Rule engine + fleet average if same organization has other vessels | 0.6-0.7 |
+| **Vessel with 1-4 past RFQs** | Blend: 70% rule engine + 30% vessel-specific history | 0.65-0.75 |
+| **Vessel with 5+ past RFQs** | Blend: 30% rule engine + 70% vessel-specific history/ML | 0.75-0.90 |
+
+### Co-Occurrence Analysis
+
+Items frequently ordered together form co-occurrence pairs used for "missing item" alerts during RFQ creation:
+
+```python
+# Co-occurrence detection from historical RFQ line items
+def build_co_occurrence_matrix(rfq_line_items: list) -> dict:
+    """
+    For each RFQ, collect IMPA code pairs.
+    Count how often pair (A, B) appears across all RFQs.
+    Normalize by individual item frequency to get lift score.
+
+    co_occurrence[(A, B)] = P(A and B) / (P(A) * P(B))
+
+    If lift > 2.0 and support > 5 RFQs: flag as strong co-occurrence.
+    """
+    pass
+
+# Example co-occurrence pairs:
+# marine_paint + paint_brushes (lift: 4.2, support: 85%)
+# mooring_rope + rope_shackles (lift: 3.8, support: 78%)
+# safety_helmet + safety_shoes (lift: 5.1, support: 92%)
+# cooking_oil + fresh_vegetables (lift: 2.5, support: 71%)
+```
+
+When a user adds items to an RFQ, the suggestion sidebar checks co-occurrence pairs and surfaces: "You usually order paint brushes with marine paint. Want to add them?"
+
+### Prediction Feedback Schema
+
+Every prediction generates a trackable feedback record:
+
+```python
+class PredictionFeedback:
+    prediction_id: UUID
+    vessel_id: UUID
+    rfq_id: UUID  # The RFQ actually created
+
+    # What was predicted
+    predicted_items: list[dict]  # [{impa_code, quantity, confidence}]
+    template_used: str | None
+
+    # What actually happened
+    items_accepted: int       # Predicted items kept as-is
+    items_modified: int       # Predicted items with quantity/spec changes
+    items_removed: int        # Predicted items user deleted
+    items_added: int          # Items user added that weren't predicted
+
+    # Accuracy metrics
+    quantity_accuracy: float  # avg(min(predicted, actual) / max(predicted, actual))
+    category_recall: float    # categories_predicted_correctly / categories_actually_ordered
+
+    created_at: datetime
+```
+
+Captain corrections directly improve future predictions:
+- "Always orders more rice" → increase rice quantity for this vessel
+- "Never orders item X" → reduce confidence for X on this vessel
+- "Added item Y not predicted" → add Y to co-occurrence matrix
+
+---
+
 ## References
 - [XGBoost Documentation](https://xgboost.readthedocs.io/)
 - [Demand Forecasting Best Practices](https://otexts.com/fpp3/)

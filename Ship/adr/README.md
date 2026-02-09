@@ -48,7 +48,7 @@ This directory contains Architecture Decision Records for the B2B maritime ship 
 | [ADR-NF-005](non-functional/ADR-NF-005-caching-strategy-redis.md) | Caching Strategy (Redis) | Accepted | P1 |
 | [ADR-NF-006](non-functional/ADR-NF-006-modular-monolith.md) | Modular Monolith vs Microservices | Accepted | P0 |
 | [ADR-NF-007](non-functional/ADR-NF-007-api-design-principles.md) | API Design Principles | Accepted | P0 |
-| [ADR-NF-008](non-functional/ADR-NF-008-async-processing-bullmq.md) | Async Processing (BullMQ) | Accepted | P0 |
+| [ADR-NF-008](non-functional/ADR-NF-008-async-processing-bullmq.md) | Async Processing (Celery) | Accepted | P0 |
 | [ADR-NF-009](non-functional/ADR-NF-009-event-driven-communication.md) | Event-Driven Communication | Accepted | P1 |
 | [ADR-NF-010](non-functional/ADR-NF-010-saga-pattern-transactions.md) | Saga Pattern for Transactions | Accepted | P2 |
 | [ADR-NF-011](non-functional/ADR-NF-011-cloud-provider-aws.md) | Cloud Provider - AWS Mumbai | Accepted | P0 |
@@ -100,7 +100,7 @@ Superseded ADRs are preserved for historical reference.
 Core architecture decisions that everything else depends on:
 - NF-006 (Monolith), NF-001 (PostgreSQL), NF-011 (AWS)
 - NF-007 (API Design), NF-002 (pgvector), NF-003 (Meilisearch)
-- NF-008 (BullMQ), NF-015 (Auth)
+- NF-008 (Celery), NF-015 (Auth)
 - FN-001 (IMPA), FN-002 (Product Model)
 - UI-001 (Next.js), UI-006 (React Native)
 
@@ -168,7 +168,7 @@ UI-006 (React Native) ──> UI-007 (Offline) ──> UI-008 (Caching)
 - [ShipServ IMPA Catalogue](https://impa-catalogue.shipserv.com)
 - [Azure Document Intelligence](https://azure.microsoft.com/en-us/products/ai-services/ai-document-intelligence)
 - [Medusa.js](https://medusajs.com)
-- [NestJS](https://nestjs.com)
+- [FastAPI](https://fastapi.tiangolo.com)
 - [Next.js](https://nextjs.org)
 - [Web Speech API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API)
 - [Expo Speech](https://docs.expo.dev/versions/latest/sdk/speech/)

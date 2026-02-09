@@ -6,7 +6,10 @@ from src.models.enums import (
     AisProvider,
     AuctionType,
     CategoryStatus,
+    DocumentType,
     EventStatus,
+    ExtractionConfidenceTier,
+    ExtractionStatus,
     InvitationStatus,
     KycDocumentStatus,
     KycDocumentType,
@@ -24,6 +27,8 @@ from src.models.enums import (
     SupplierTier,
     TagSource,
     TagType,
+    TcoCalculationStatus,
+    TcoTemplateType,
     UnitType,
     UserRole,
     UserStatus,
@@ -53,8 +58,13 @@ from src.models.rfq import Rfq
 from src.models.rfq_invitation import RfqInvitation
 from src.models.rfq_line_item import RfqLineItem
 from src.models.rfq_transition import RfqTransition
+from src.models.document_extraction import DocumentExtraction, ExtractedLineItem
 from src.models.vessel import Vessel
 from src.models.vessel_position import VesselPosition
+from src.models.tco_configuration import TcoConfiguration
+from src.models.tco_calculation import TcoCalculation
+from src.models.tco_audit_trail import TcoAuditTrail
+from src.models.conversation_session import ConversationSession
 
 __all__ = [
     "AisProvider",
@@ -63,8 +73,13 @@ __all__ = [
     "CategoryClosure",
     "CategorySchema",
     "CategoryStatus",
+    "DocumentExtraction",
+    "DocumentType",
     "EventOutbox",
     "EventStatus",
+    "ExtractionConfidenceTier",
+    "ExtractionStatus",
+    "ExtractedLineItem",
     "ImpaCategoryMapping",
     "InvitationStatus",
     "IssaCategoryMapping",
@@ -109,6 +124,12 @@ __all__ = [
     "UnitOfMeasure",
     "UnitType",
     "User",
+    "TcoAuditTrail",
+    "TcoCalculation",
+    "TcoCalculationStatus",
+    "TcoConfiguration",
+    "TcoTemplateType",
+    "ConversationSession",
     "UserRole",
     "UserStatus",
     "Vessel",

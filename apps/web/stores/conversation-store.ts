@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 
 export type MessageRole = "user" | "assistant" | "system";
 
-export type CardType = "suggestion" | "rfq_summary" | "quote_comparison" | "vessel_info" | "product_list";
+export type CardType = "suggestion" | "rfq_summary" | "quote_comparison" | "vessel_info" | "product_list" | "price_benchmark" | "risk_flags" | "supplier_matches" | "intelligence";
 
 export interface AICard {
   type: CardType;

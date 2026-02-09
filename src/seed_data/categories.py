@@ -1,0 +1,41 @@
+"""
+IMPA Marine Stores Guide categories for seed data.
+34 real IMPA categories with their 2-digit prefixes.
+"""
+
+IMPA_CATEGORIES = [
+    {"prefix": "00", "name": "General"},
+    {"prefix": "11", "name": "Deck Stores"},
+    {"prefix": "15", "name": "Mooring Equipment"},
+    {"prefix": "17", "name": "Fire Fighting & Safety"},
+    {"prefix": "19", "name": "Life Saving Equipment"},
+    {"prefix": "21", "name": "Cleaning Equipment & Material"},
+    {"prefix": "23", "name": "Paints, Varnishes & Thinners"},
+    {"prefix": "25", "name": "Chemicals & Gases"},
+    {"prefix": "27", "name": "Ropes & Wires"},
+    {"prefix": "31", "name": "Electrical Stores"},
+    {"prefix": "33", "name": "Electrical Equipment"},
+    {"prefix": "35", "name": "Stationery & Books"},
+    {"prefix": "37", "name": "Medical Stores"},
+    {"prefix": "39", "name": "Galley & Tableware"},
+    {"prefix": "45", "name": "Provisions (Fresh)"},
+    {"prefix": "47", "name": "Provisions (Dry/Canned)"},
+    {"prefix": "49", "name": "Cabin Stores & Linen"},
+    {"prefix": "51", "name": "Navigation Equipment"},
+    {"prefix": "53", "name": "Communication Equipment"},
+    {"prefix": "55", "name": "Entertainment & Recreation"},
+    {"prefix": "59", "name": "Laundry & Sewing"},
+    {"prefix": "61", "name": "Engine Room Stores"},
+    {"prefix": "63", "name": "Engine Room Equipment"},
+    {"prefix": "65", "name": "Pumps & Compressors"},
+    {"prefix": "67", "name": "Refrigeration & AC"},
+    {"prefix": "69", "name": "Lubricants"},
+    {"prefix": "71", "name": "Fasteners (Bolts, Nuts, Screws)"},
+    {"prefix": "73", "name": "Fittings (Pipes & Tubes)"},
+    {"prefix": "75", "name": "Gaskets & Packing"},
+    {"prefix": "77", "name": "Hand & Power Tools"},
+    {"prefix": "79", "name": "Welding & Cutting Equipment"},
+    {"prefix": "81", "name": "Workshop Equipment"},
+    {"prefix": "85", "name": "Raw Materials"},
+    {"prefix": "87", "name": "Valves"},
+]

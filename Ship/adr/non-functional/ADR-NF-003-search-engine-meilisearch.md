@@ -1,8 +1,16 @@
 # ADR-NF-003: Search Engine - Meilisearch
 
-**Status:** Accepted
+**Status:** Superseded
 **Date:** 2025-01-20
 **Technical Area:** Infrastructure
+
+**Superseded By:** PostgreSQL-native hybrid search (FTS + pg_trgm + pgvector)
+**Superseded Date:** 2026-02-06
+**Rationale:** At 50K-100K products, PostgreSQL FTS + pg_trgm + pgvector provides
+sub-50ms search with zero sync infrastructure. Meilisearch adds operational complexity
+(data sync pipeline, separate service) not justified at current scale. Revisit if
+search quality proves insufficient after real user testing, or when ParadeDB pg_search
+becomes available on AWS RDS.
 
 ---
 

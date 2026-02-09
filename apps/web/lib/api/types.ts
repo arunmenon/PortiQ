@@ -639,3 +639,273 @@ export interface TierCapabilities {
   commission_percent: number;
   payment_terms: string | null;
 }
+
+// ---------------------------------------------------------------------------
+// RFQ & Bidding
+// ---------------------------------------------------------------------------
+
+export type RfqStatus =
+  | "DRAFT"
+  | "PUBLISHED"
+  | "BIDDING_OPEN"
+  | "BIDDING_CLOSED"
+  | "EVALUATION"
+  | "AWARDED"
+  | "COMPLETED"
+  | "CANCELLED";
+
+export type RfqTransitionType =
+  | "PUBLISH"
+  | "OPEN_BIDDING"
+  | "CLOSE_BIDDING"
+  | "START_EVALUATION"
+  | "AWARD"
+  | "COMPLETE"
+  | "CANCEL";
+
+export type AuctionType = "SEALED_BID";
+
+export type QuoteStatus =
+  | "DRAFT"
+  | "SUBMITTED"
+  | "REVISED"
+  | "WITHDRAWN"
+  | "AWARDED"
+  | "REJECTED"
+  | "EXPIRED";
+
+export type InvitationStatus = "PENDING" | "ACCEPTED" | "DECLINED" | "EXPIRED";
+
+// RFQ Line Items
+
+export interface RfqLineItemCreate {
+  line_number: number;
+  product_id?: string | null;
+  impa_code?: string | null;
+  description: string;
+  quantity: number;
+  unit_of_measure: string;
+  specifications?: Record<string, unknown> | null;
+  notes?: string | null;
+}
+
+export interface RfqLineItemUpdate {
+  product_id?: string | null;
+  impa_code?: string | null;
+  description?: string;
+  quantity?: number;
+  unit_of_measure?: string;
+  specifications?: Record<string, unknown> | null;
+  notes?: string | null;
+}
+
+export interface RfqLineItemResponse {
+  id: string;
+  rfq_id: string;
+  line_number: number;
+  product_id: string | null;
+  impa_code: string | null;
+  description: string;
+  quantity: string; // Decimal
+  unit_of_measure: string;
+  specifications: Record<string, unknown> | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// RFQ
+
+export interface RfqCreate {
+  title: string;
+  description?: string | null;
+  auction_type?: AuctionType;
+  currency?: string;
+  vessel_id?: string | null;
+  delivery_port?: string | null;
+  delivery_date?: string | null;
+  bidding_deadline?: string | null;
+  allow_partial_quotes?: boolean;
+  allow_quote_revision?: boolean;
+  require_all_line_items?: boolean;
+  notes?: string | null;
+  line_items?: RfqLineItemCreate[];
+}
+
+export interface RfqUpdate {
+  title?: string;
+  description?: string | null;
+  auction_type?: AuctionType;
+  currency?: string;
+  vessel_id?: string | null;
+  delivery_port?: string | null;
+  delivery_date?: string | null;
+  bidding_deadline?: string | null;
+  allow_partial_quotes?: boolean;
+  allow_quote_revision?: boolean;
+  require_all_line_items?: boolean;
+  notes?: string | null;
+}
+
+export interface RfqResponse {
+  id: string;
+  reference_number: string;
+  buyer_organization_id: string;
+  title: string;
+  description: string | null;
+  status: RfqStatus;
+  auction_type: AuctionType;
+  currency: string;
+  vessel_id: string | null;
+  delivery_port: string | null;
+  delivery_date: string | null;
+  bidding_start: string | null;
+  bidding_deadline: string | null;
+  allow_partial_quotes: boolean;
+  allow_quote_revision: boolean;
+  require_all_line_items: boolean;
+  awarded_quote_id: string | null;
+  awarded_supplier_id: string | null;
+  awarded_at: string | null;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
+  notes: string | null;
+  metadata_extra: Record<string, unknown>;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  line_items: RfqLineItemResponse[];
+}
+
+export interface RfqListResponse {
+  items: RfqResponse[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface RfqListParams extends PaginationParams {
+  status?: RfqStatus;
+  search?: string;
+}
+
+// Invitations
+
+export interface InvitationCreate {
+  supplier_organization_ids: string[];
+}
+
+export interface InvitationResponse {
+  id: string;
+  rfq_id: string;
+  supplier_organization_id: string;
+  status: InvitationStatus;
+  invited_by: string;
+  invited_at: string;
+  responded_at: string | null;
+  decline_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InvitationRespondRequest {
+  accept: boolean;
+  decline_reason?: string | null;
+}
+
+// Quote Line Items
+
+export interface QuoteLineItemCreate {
+  rfq_line_item_id: string;
+  unit_price: number;
+  quantity: number;
+  total_price: number;
+  lead_time_days?: number | null;
+  notes?: string | null;
+}
+
+export interface QuoteLineItemResponse {
+  id: string;
+  quote_id: string;
+  rfq_line_item_id: string;
+  unit_price: string; // Decimal
+  quantity: string; // Decimal
+  total_price: string; // Decimal
+  lead_time_days: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Quotes
+
+export interface QuoteCreate {
+  currency?: string;
+  valid_until?: string | null;
+  delivery_port?: string | null;
+  estimated_delivery_days?: number | null;
+  payment_terms?: string | null;
+  shipping_terms?: string | null;
+  warranty_terms?: string | null;
+  notes?: string | null;
+  line_items?: QuoteLineItemCreate[];
+}
+
+export interface QuoteResponse {
+  id: string;
+  rfq_id: string;
+  supplier_organization_id: string;
+  status: QuoteStatus;
+  version: number;
+  total_amount: string | null; // Decimal
+  currency: string;
+  valid_until: string | null;
+  delivery_port: string | null;
+  estimated_delivery_days: number | null;
+  payment_terms: string | null;
+  shipping_terms: string | null;
+  warranty_terms: string | null;
+  price_rank: number | null;
+  is_complete: boolean;
+  notes: string | null;
+  metadata_extra: Record<string, unknown>;
+  submitted_by: string | null;
+  submitted_at: string | null;
+  withdrawn_at: string | null;
+  withdrawal_reason: string | null;
+  created_at: string;
+  updated_at: string;
+  line_items: QuoteLineItemResponse[];
+}
+
+export interface QuoteListResponse {
+  items: QuoteResponse[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+// Transitions
+
+export interface TransitionResponse {
+  id: string;
+  rfq_id: string;
+  from_status: RfqStatus;
+  to_status: RfqStatus;
+  transition_type: RfqTransitionType;
+  triggered_by: string | null;
+  trigger_source: string;
+  reason: string | null;
+  metadata_extra: Record<string, unknown>;
+  created_at: string;
+}
+
+// Action Requests
+
+export interface AwardRequest {
+  quote_id: string;
+}
+
+export interface CancelRequest {
+  reason: string;
+}

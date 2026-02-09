@@ -21,7 +21,7 @@ A B2B maritime procurement platform handles diverse data:
 Operational simplicity and cost efficiency favor minimizing database infrastructure while meeting all requirements.
 
 ### Technical Context
-- NestJS backend (TypeScript/Node.js)
+- FastAPI backend (Python/asyncio)
 - Need for ACID transactions (financial data)
 - Vector search for document AI matching
 - Time-series potential for IoT (future)
@@ -59,7 +59,7 @@ Operational simplicity and cost efficiency favor minimizing database infrastruct
 - Native JSONB with indexing
 - Row-level security for multi-tenancy
 - Excellent SQL support
-- Strong TypeScript/Node.js support
+- Strong Python ecosystem support (SQLAlchemy, asyncpg)
 
 **Cons:**
 - Single point of failure
@@ -116,7 +116,7 @@ PostgreSQL's extension ecosystem has matured to handle diverse data types and qu
 - Rich querying with SQL
 - Native multi-tenant isolation
 - Lower infrastructure costs
-- Strong TypeScript ecosystem support
+- Strong Python ecosystem support
 
 ### Negative
 - Not optimized for any specific workload
@@ -155,38 +155,25 @@ CREATE EXTENSION IF NOT EXISTS "ltree";
 
 ### Connection Configuration
 
-```typescript
-// database/config/database.config.ts
-export const databaseConfig: TypeOrmModuleOptions = {
-  type: 'postgres',
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT, 10) || 5432,
-  username: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+```python
+# src/database/engine.py
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from src.config import settings
 
-  // Connection pool
-  extra: {
-    max: 20,              // Max connections per instance
-    min: 5,               // Min connections
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000
-  },
+engine = create_async_engine(
+    settings.database_url,
+    pool_size=20,           # Max connections per instance
+    pool_pre_ping=True,     # Verify connections before use
+    pool_recycle=3600,       # Recycle connections after 1 hour
+    max_overflow=5,          # Allow 5 extra connections under load
+    connect_args={
+        "server_settings": {"application_name": "portiq"},
+        "ssl": "require" if settings.environment == "production" else None,
+    },
+    echo=settings.environment == "development",  # SQL logging in dev
+)
 
-  // SSL for production
-  ssl: process.env.NODE_ENV === 'production' ? {
-    rejectUnauthorized: true,
-    ca: process.env.DB_CA_CERT
-  } : false,
-
-  // Logging
-  logging: process.env.NODE_ENV === 'development' ? ['query', 'error'] : ['error'],
-
-  // Schema
-  schema: 'public',
-  synchronize: false,  // Never in production
-  migrationsRun: true
-};
+async_session = async_sessionmaker(engine, expire_on_commit=False)
 ```
 
 ### Row-Level Security Setup
@@ -203,8 +190,8 @@ CREATE POLICY org_isolation ON orders
            OR seller_org_id = current_setting('app.current_org_id')::uuid);
 
 -- Set context in application
--- In NestJS middleware:
--- await this.dataSource.query(`SET app.current_org_id = '${orgId}'`);
+-- In FastAPI middleware via SQLAlchemy:
+-- await session.execute(text("SELECT set_config('app.current_org_id', :org_id, true)"), {"org_id": org_id})
 ```
 
 ### Indexing Strategy
@@ -369,17 +356,19 @@ CREATE TABLE audit_logs (
 | Background Jobs | 5 connections | 120s | Primary |
 | Admin/Migrations | 2 connections | 600s | Primary |
 
-```typescript
-// Separate data sources for workload isolation
-export const transactionalDataSource = new DataSource({
-  // ... config
-  extra: { max: 20, statement_timeout: '30000' }
-});
+```python
+# Separate engines for workload isolation
+transactional_engine = create_async_engine(
+    settings.database_url,
+    pool_size=20,
+    connect_args={"server_settings": {"statement_timeout": "30000"}},
+)
 
-export const analyticsDataSource = new DataSource({
-  // ... config pointing to read replica
-  extra: { max: 10, statement_timeout: '300000' }
-});
+analytics_engine = create_async_engine(
+    settings.read_replica_url,
+    pool_size=10,
+    connect_args={"server_settings": {"statement_timeout": "300000"}},
+)
 ```
 
 ### Query Governance

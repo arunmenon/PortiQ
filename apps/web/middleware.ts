@@ -2,9 +2,44 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 const PUBLIC_PATHS = ["/login", "/register", "/forgot-password"];
+const API_URL = process.env.BACKEND_URL || "http://localhost:8000";
 
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+export async function middleware(request: NextRequest) {
+  const { pathname, search } = request.nextUrl;
+
+  // Proxy /api/v1/* requests to FastAPI backend, preserving all headers
+  if (pathname.startsWith("/api/v1")) {
+    const targetUrl = `${API_URL}${pathname}${search}`;
+
+    const headers = new Headers();
+    request.headers.forEach((value, key) => {
+      if (key.toLowerCase() !== "host") {
+        headers.set(key, value);
+      }
+    });
+
+    const response = await fetch(targetUrl, {
+      method: request.method,
+      headers,
+      body: request.method !== "GET" && request.method !== "HEAD" ? request.body : undefined,
+      redirect: "follow",
+      // @ts-expect-error duplex needed for streaming request body
+      duplex: "half",
+    });
+
+    const responseHeaders = new Headers();
+    response.headers.forEach((value, key) => {
+      if (key.toLowerCase() !== "transfer-encoding") {
+        responseHeaders.set(key, value);
+      }
+    });
+
+    return new NextResponse(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: responseHeaders,
+    });
+  }
 
   const isPublicPath = PUBLIC_PATHS.some(
     (path) => pathname === path || pathname.startsWith(`${path}/`)
@@ -33,6 +68,7 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/).*)",
+    "/api/v1/:path*",
+    "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };

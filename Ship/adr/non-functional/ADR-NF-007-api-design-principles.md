@@ -21,7 +21,7 @@ The API serves multiple consumers:
 Consistency, discoverability, and developer experience are critical.
 
 ### Technical Context
-- NestJS backend with TypeScript
+- FastAPI backend with Python
 - Multiple client applications
 - Need for API documentation
 - Versioning for breaking changes
@@ -242,248 +242,165 @@ GET    /api/v1/products?include=category,supplier
 
 ### OpenAPI Configuration
 
-```typescript
-// main.ts
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+```python
+# src/app.py
+from fastapi import FastAPI
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+app = FastAPI(
+    title="Ship Chandlery Platform API",
+    description="Maritime B2B procurement platform API",
+    version="1.0.0",
+    docs_url="/api/docs",        # Swagger UI
+    redoc_url="/api/redoc",      # ReDoc
+    openapi_url="/api/openapi.json",
+)
 
-  const config = new DocumentBuilder()
-    .setTitle('Ship Chandlery Platform API')
-    .setDescription('Maritime B2B procurement platform API')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .addApiKey({ type: 'apiKey', name: 'X-Organization-ID', in: 'header' }, 'organization')
-    .addTag('Products', 'Product catalog operations')
-    .addTag('RFQs', 'Request for quotation operations')
-    .addTag('Orders', 'Order management operations')
-    .addTag('Users', 'User management operations')
-    .build();
-
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document, {
-    swaggerOptions: {
-      persistAuthorization: true
-    }
-  });
-
-  // Export OpenAPI spec
-  if (process.env.EXPORT_OPENAPI) {
-    const fs = require('fs');
-    fs.writeFileSync('./openapi.json', JSON.stringify(document, null, 2));
-  }
-
-  await app.listen(3000);
-}
+# FastAPI auto-generates OpenAPI 3.1 spec from route type hints and Pydantic models
+# No manual DocumentBuilder needed — schema is derived from code
 ```
 
-### Controller Implementation
+### Router Implementation
 
-```typescript
-// products/products.controller.ts
-@ApiTags('Products')
-@Controller('api/v1/products')
-@UseGuards(JwtAuthGuard, OrganizationGuard)
-export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+```python
+# src/modules/catalog/router.py
+from uuid import UUID
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from src.database.session import get_db
+from src.modules.tenancy.dependencies import get_tenant_context
+from .schemas import (
+    CreateProductDto, UpdateProductDto, ProductResponse, ProductListResponse, ProductQueryDto,
+)
+from .service import ProductsService
 
-  @Get()
-  @ApiOperation({ summary: 'List products' })
-  @ApiQuery({ name: 'category', required: false, description: 'Filter by category ID' })
-  @ApiQuery({ name: 'q', required: false, description: 'Search query' })
-  @ApiQuery({ name: 'page', required: false, type: Number, default: 1 })
-  @ApiQuery({ name: 'limit', required: false, type: Number, default: 20 })
-  @ApiResponse({ status: 200, type: ProductListResponse })
-  async findAll(
-    @Query() query: ProductQueryDto
-  ): Promise<ProductListResponse> {
-    const result = await this.productsService.findAll(query);
-    return this.formatListResponse(result);
-  }
+router = APIRouter(prefix="/api/v1/products", tags=["Products"])
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Get product by ID' })
-  @ApiParam({ name: 'id', description: 'Product ID' })
-  @ApiQuery({ name: 'include', required: false, description: 'Related resources to include' })
-  @ApiResponse({ status: 200, type: ProductResponse })
-  @ApiResponse({ status: 404, description: 'Product not found' })
-  async findOne(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Query('include') include?: string
-  ): Promise<ProductResponse> {
-    const product = await this.productsService.findById(id, include?.split(','));
-    if (!product) {
-      throw new NotFoundException('Product not found');
-    }
-    return this.formatSingleResponse(product);
-  }
+@router.get("/", response_model=ProductListResponse, summary="List products")
+async def list_products(
+    category: UUID | None = None,
+    q: str | None = None,
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    db=Depends(get_db),
+    tenant=Depends(get_tenant_context),
+):
+    service = ProductsService(db)
+    return await service.find_all(
+        ProductQueryDto(category=category, q=q, page=page, limit=limit)
+    )
 
-  @Post()
-  @ApiOperation({ summary: 'Create product' })
-  @ApiBody({ type: CreateProductDto })
-  @ApiResponse({ status: 201, type: ProductResponse })
-  @ApiResponse({ status: 400, description: 'Validation error' })
-  @RequirePermission('products.create')
-  async create(
-    @Body() createProductDto: CreateProductDto,
-    @CurrentOrganization() org: Organization
-  ): Promise<ProductResponse> {
-    const product = await this.productsService.create(createProductDto, org.id);
-    return this.formatSingleResponse(product);
-  }
+@router.get("/{product_id}", response_model=ProductResponse, summary="Get product by ID")
+async def get_product(
+    product_id: UUID,
+    include: str | None = None,
+    db=Depends(get_db),
+):
+    service = ProductsService(db)
+    product = await service.find_by_id(product_id, include.split(",") if include else None)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return product
 
-  @Patch(':id')
-  @ApiOperation({ summary: 'Update product' })
-  @ApiParam({ name: 'id', description: 'Product ID' })
-  @ApiBody({ type: UpdateProductDto })
-  @ApiResponse({ status: 200, type: ProductResponse })
-  @RequirePermission('products.update')
-  async update(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() updateProductDto: UpdateProductDto
-  ): Promise<ProductResponse> {
-    const product = await this.productsService.update(id, updateProductDto);
-    return this.formatSingleResponse(product);
-  }
+@router.post("/", response_model=ProductResponse, status_code=status.HTTP_201_CREATED, summary="Create product")
+async def create_product(
+    dto: CreateProductDto,
+    db=Depends(get_db),
+    tenant=Depends(get_tenant_context),
+):
+    service = ProductsService(db)
+    return await service.create(dto, tenant.organization_id)
 
-  @Delete(':id')
-  @ApiOperation({ summary: 'Delete product' })
-  @ApiParam({ name: 'id', description: 'Product ID' })
-  @ApiResponse({ status: 204, description: 'Product deleted' })
-  @RequirePermission('products.delete')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    await this.productsService.remove(id);
-  }
-}
+@router.patch("/{product_id}", response_model=ProductResponse, summary="Update product")
+async def update_product(product_id: UUID, dto: UpdateProductDto, db=Depends(get_db)):
+    service = ProductsService(db)
+    return await service.update(product_id, dto)
+
+@router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete product")
+async def delete_product(product_id: UUID, db=Depends(get_db)):
+    service = ProductsService(db)
+    await service.remove(product_id)
 ```
 
 ### DTO Validation
 
-```typescript
-// products/dto/create-product.dto.ts
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNumber, IsOptional, IsUUID, Min, MaxLength, Matches } from 'class-validator';
+```python
+# src/modules/catalog/schemas.py
+from uuid import UUID
+from pydantic import BaseModel, Field, field_validator
+import re
 
-export class CreateProductDto {
-  @ApiProperty({ description: 'IMPA code (6 digits)', example: '123456' })
-  @IsString()
-  @Matches(/^\d{6}$/, { message: 'IMPA code must be 6 digits' })
-  impaCode: string;
+class CreateProductDto(BaseModel):
+    impa_code: str = Field(..., description="IMPA code (6 digits)", examples=["123456"])
+    name: str = Field(..., max_length=255, description="Product name", examples=["Stainless Steel Bolt M10x50"])
+    description: str | None = Field(None, description="Product description")
+    category_id: UUID = Field(..., description="Category ID")
+    base_price: float = Field(..., ge=0, description="Base price", examples=[10.50])
+    unit_of_measure: str = Field(..., description="Unit of measure", examples=["PIECE"])
+    specifications: dict | None = Field(None, description="Product specifications")
 
-  @ApiProperty({ description: 'Product name', example: 'Stainless Steel Bolt M10x50' })
-  @IsString()
-  @MaxLength(255)
-  name: string;
-
-  @ApiPropertyOptional({ description: 'Product description' })
-  @IsOptional()
-  @IsString()
-  description?: string;
-
-  @ApiProperty({ description: 'Category ID' })
-  @IsUUID()
-  categoryId: string;
-
-  @ApiProperty({ description: 'Base price', example: 10.50 })
-  @IsNumber()
-  @Min(0)
-  basePrice: number;
-
-  @ApiProperty({ description: 'Unit of measure', example: 'PIECE' })
-  @IsString()
-  unitOfMeasure: string;
-
-  @ApiPropertyOptional({ description: 'Product specifications' })
-  @IsOptional()
-  specifications?: Record<string, any>;
-}
+    @field_validator("impa_code")
+    @classmethod
+    def validate_impa_code(cls, v: str) -> str:
+        if not re.match(r"^\d{6}$", v):
+            raise ValueError("IMPA code must be 6 digits")
+        return v
 ```
 
 ### Error Handling
 
-```typescript
-// common/filters/http-exception.filter.ts
-@Catch()
-export class AllExceptionsFilter implements ExceptionFilter {
-  catch(exception: unknown, host: ArgumentsHost): void {
-    const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<Request>();
+```python
+# src/app.py — Exception handlers
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+import logging
 
-    let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let errorResponse: ApiErrorResponse;
+logger = logging.getLogger(__name__)
 
-    if (exception instanceof HttpException) {
-      status = exception.getStatus();
-      const exceptionResponse = exception.getResponse();
+ERROR_CODES = {400: "BAD_REQUEST", 401: "UNAUTHORIZED", 403: "FORBIDDEN",
+               404: "NOT_FOUND", 409: "CONFLICT", 422: "VALIDATION_ERROR",
+               429: "TOO_MANY_REQUESTS", 500: "INTERNAL_ERROR"}
 
-      errorResponse = {
-        error: {
-          code: this.getErrorCode(status),
-          message: typeof exceptionResponse === 'string'
-            ? exceptionResponse
-            : (exceptionResponse as any).message,
-          details: (exceptionResponse as any).details,
-          requestId: request.headers['x-request-id'] as string
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(status_code=422, content={
+        "error": {
+            "code": "VALIDATION_ERROR",
+            "message": "Validation failed",
+            "details": exc.errors(),
+            "requestId": request.headers.get("x-request-id"),
         }
-      };
-    } else {
-      errorResponse = {
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'An unexpected error occurred',
-          requestId: request.headers['x-request-id'] as string
+    })
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled exception")
+    return JSONResponse(status_code=500, content={
+        "error": {
+            "code": "INTERNAL_ERROR",
+            "message": "An unexpected error occurred",
+            "requestId": request.headers.get("x-request-id"),
         }
-      };
-
-      // Log actual error for debugging
-      this.logger.error('Unhandled exception', exception);
-    }
-
-    response.status(status).json(errorResponse);
-  }
-
-  private getErrorCode(status: number): string {
-    const codes: Record<number, string> = {
-      400: 'BAD_REQUEST',
-      401: 'UNAUTHORIZED',
-      403: 'FORBIDDEN',
-      404: 'NOT_FOUND',
-      409: 'CONFLICT',
-      422: 'VALIDATION_ERROR',
-      429: 'TOO_MANY_REQUESTS',
-      500: 'INTERNAL_ERROR'
-    };
-    return codes[status] || 'UNKNOWN_ERROR';
-  }
-}
+    })
 ```
 
 ### Versioning Strategy
 
-```typescript
-// main.ts
-app.enableVersioning({
-  type: VersioningType.URI,
-  defaultVersion: '1'
-});
+```python
+# src/app.py — URL-based versioning via router prefixes
+from fastapi import APIRouter
 
-// With versioning, controllers can specify versions
-@Controller({
-  path: 'products',
-  version: '1'
-})
-export class ProductsV1Controller {}
+v1_router = APIRouter(prefix="/api/v1")
+v2_router = APIRouter(prefix="/api/v2")
 
-@Controller({
-  path: 'products',
-  version: '2'
-})
-export class ProductsV2Controller {}
+# src/modules/catalog/router.py
+router = APIRouter(prefix="/products", tags=["Products"])
 
-// URL: /api/v1/products, /api/v2/products
+# Registration:
+v1_router.include_router(catalog_v1_router)
+v2_router.include_router(catalog_v2_router)
+app.include_router(v1_router)
+app.include_router(v2_router)
+# URLs: /api/v1/products, /api/v2/products
 ```
 
 ### Dependencies
@@ -493,10 +410,10 @@ export class ProductsV2Controller {}
 
 ### Migration Strategy
 1. Establish API design guidelines document
-2. Set up OpenAPI/Swagger in NestJS
-3. Create base response DTOs
-4. Implement exception filters
-5. Generate initial API documentation
+2. Set up FastAPI with auto-generated OpenAPI/Swagger
+3. Create base response Pydantic models
+4. Implement exception handlers
+5. Generate initial API documentation (auto from FastAPI)
 6. Set up client SDK generation
 7. Create API versioning strategy
 
@@ -693,6 +610,6 @@ const retryConfig = {
 
 ## References
 - [OpenAPI Specification](https://spec.openapis.org/oas/v3.1.0)
-- [NestJS OpenAPI](https://docs.nestjs.com/openapi/introduction)
+- [FastAPI OpenAPI](https://fastapi.tiangolo.com/tutorial/metadata/)
 - [REST API Design Guidelines](https://docs.microsoft.com/en-us/azure/architecture/best-practices/api-design)
 - [JSON:API Specification](https://jsonapi.org/)

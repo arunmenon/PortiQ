@@ -1,4 +1,4 @@
-# ADR-NF-008: Async Processing (BullMQ)
+# ADR-NF-008: Async Processing (Celery)
 
 **Status:** Accepted
 **Date:** 2025-01-20
@@ -20,7 +20,7 @@ Async processing needs:
 - Webhook delivery with retries
 
 ### Technical Context
-- NestJS backend with TypeScript
+- FastAPI backend with Python
 - Redis available for caching (ADR-NF-005)
 - Need for job retries, priorities, and scheduling
 - Worker scaling independent of API
@@ -37,8 +37,8 @@ Async processing needs:
 ## Decision Drivers
 
 - Reliability and durability
-- TypeScript support
-- NestJS integration
+- Python support
+- FastAPI integration
 - Redis compatibility
 - Job monitoring capabilities
 - Scalability
@@ -47,19 +47,19 @@ Async processing needs:
 
 ## Considered Options
 
-### Option 1: BullMQ
-**Description:** Premium Redis-based queue with advanced features.
+### Option 1: Celery
+**Description:** Distributed task queue with Redis broker and rich Python ecosystem.
 
 **Pros:**
-- Built for Redis
-- Excellent TypeScript support
-- NestJS integration (@nestjs/bullmq)
-- Advanced features (priorities, delays, retries)
+- Mature Python task queue (10+ years)
+- Redis and RabbitMQ broker support
+- Advanced features (priorities, delays, retries, canvas workflows)
 - Rate limiting built-in
-- Bull Board for monitoring
+- Flower for monitoring
+- Excellent ecosystem (celery-beat for scheduling)
 
 **Cons:**
-- Redis dependency
+- Redis dependency for broker
 - Memory usage for large queues
 
 ### Option 2: AWS SQS + Lambda
@@ -109,22 +109,22 @@ Async processing needs:
 
 ## Decision
 
-**Chosen Option:** BullMQ
+**Chosen Option:** Celery
 
-We will use BullMQ for asynchronous job processing, leveraging its TypeScript support, NestJS integration, and advanced queue features.
+We will use Celery for asynchronous job processing, leveraging its Python ecosystem, Redis broker support, and advanced queue features.
 
 ### Rationale
-BullMQ is the natural choice given our existing Redis infrastructure (ADR-NF-005). Its first-class TypeScript support and official NestJS module provide excellent developer experience. Advanced features like job priorities, delays, retries, and rate limiting handle our complex processing needs without additional complexity.
+Celery is the natural choice given our Python backend and existing Redis infrastructure (ADR-NF-005). As the most mature Python task queue, it provides excellent developer experience with canvas workflows (chains, groups, chords), beat scheduler for periodic tasks, and Flower for monitoring. Advanced features like priorities, retries, and rate limiting handle our complex processing needs.
 
 ---
 
 ## Consequences
 
 ### Positive
-- Excellent TypeScript/NestJS integration
-- Advanced queue features out of the box
-- Unified with caching infrastructure
-- Bull Board for monitoring
+- Excellent Python ecosystem integration
+- Advanced queue features out of the box (canvas, beat, result backends)
+- Unified with caching infrastructure (Redis)
+- Flower for monitoring
 - Reliable job processing with retries
 
 ### Negative
@@ -142,410 +142,204 @@ BullMQ is the natural choice given our existing Redis infrastructure (ADR-NF-005
 
 ## Implementation Notes
 
-### Module Configuration
+### Celery Configuration
 
-```typescript
-// queue/queue.module.ts
-import { BullModule } from '@nestjs/bullmq';
+```python
+# celery_app.py
+from celery import Celery
+from src.config import settings
 
-@Module({
-  imports: [
-    BullModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        connection: {
-          host: configService.get('REDIS_HOST'),
-          port: configService.get('REDIS_PORT'),
-          password: configService.get('REDIS_PASSWORD')
-        },
-        defaultJobOptions: {
-          attempts: 3,
-          backoff: {
-            type: 'exponential',
-            delay: 1000
-          },
-          removeOnComplete: {
-            count: 100,
-            age: 24 * 3600  // 24 hours
-          },
-          removeOnFail: {
-            count: 1000,
-            age: 7 * 24 * 3600  // 7 days
-          }
+celery = Celery(
+    "portiq",
+    broker=settings.celery_broker_url,   # redis://localhost:6379/0
+    backend=settings.celery_result_backend,
+)
+
+celery.conf.update(
+    task_serializer="json",
+    accept_content=["json"],
+    result_serializer="json",
+    timezone="UTC",
+    task_default_retry_delay=60,
+    task_max_retries=3,
+    task_acks_late=True,
+    worker_prefetch_multiplier=1,
+    result_expires=86400,  # 24 hours
+    task_routes={
+        "src.modules.search.tasks.*": {"queue": "embedding"},
+        "src.modules.document_ai.tasks.*": {"queue": "document-processing"},
+        "src.modules.notifications.tasks.*": {"queue": "notifications"},
+    },
+)
+
+# Auto-discover tasks in all modules
+celery.autodiscover_tasks(["src.modules.search", "src.modules.notifications"])
+
+# Queue names
+QUEUES = {
+    "DOCUMENT_PROCESSING": "document-processing",
+    "EMAIL": "email",
+    "NOTIFICATIONS": "notifications",
+    "DATA_IMPORT": "data-import",
+    "REPORTS": "reports",
+    "WEBHOOKS": "webhooks",
+    "EMBEDDING": "embedding",
+}
+```
+
+### Task Producer
+
+```python
+# src/modules/document_ai/service.py
+from src.modules.document_ai.tasks import parse_document
+
+class DocumentProcessorService:
+    def process_document(self, document_id: str, urgent: bool = False) -> str:
+        result = parse_document.apply_async(
+            args=[document_id],
+            priority=1 if urgent else 5,
+            task_id=f"doc-{document_id}",  # Deduplication
+        )
+        return result.id
+
+    def process_document_batch(self, document_ids: list[str]) -> list[str]:
+        from celery import group
+        job_group = group(
+            parse_document.s(doc_id) for doc_id in document_ids
+        )
+        result = job_group.apply_async()
+        return [r.id for r in result.children]
+
+    def get_job_status(self, job_id: str) -> dict | None:
+        from celery.result import AsyncResult
+        result = AsyncResult(job_id)
+        if not result.id:
+            return None
+        return {
+            "id": result.id,
+            "state": result.state,
+            "progress": result.info if isinstance(result.info, dict) else None,
         }
-      }),
-      inject: [ConfigService]
-    }),
+```
 
-    // Register queues
-    BullModule.registerQueue(
-      { name: QUEUES.DOCUMENT_PROCESSING },
-      { name: QUEUES.EMAIL },
-      { name: QUEUES.NOTIFICATIONS },
-      { name: QUEUES.DATA_IMPORT },
-      { name: QUEUES.REPORTS },
-      { name: QUEUES.WEBHOOKS }
+### Task Consumer (Worker)
+
+```python
+# src/modules/document_ai/tasks.py
+import logging
+from celery import shared_task
+from celery.utils.log import get_task_logger
+
+logger = get_task_logger(__name__)
+
+@shared_task(bind=True, max_retries=5, default_retry_delay=30, rate_limit="10/s")
+def parse_document(self, document_id: str):
+    """Process a document through the AI pipeline."""
+    logger.info(f"Processing document {document_id}")
+
+    try:
+        # Step 1: Parse document
+        self.update_state(state="PROGRESS", meta={"step": "parsing", "progress": 10})
+        parsed = parsing_service.parse(document_id)
+
+        # Step 2: Extract line items
+        self.update_state(state="PROGRESS", meta={"step": "extraction", "progress": 40})
+        extracted = extraction_service.extract(parsed)
+
+        # Step 3: Match to SKUs
+        self.update_state(state="PROGRESS", meta={"step": "matching", "progress": 70})
+        matched = matching_service.match(extracted)
+
+        # Step 4: Save results
+        self.update_state(state="PROGRESS", meta={"step": "saving", "progress": 90})
+        save_results(document_id, matched)
+
+        return {
+            "document_id": document_id,
+            "line_items_extracted": len(extracted),
+            "matched_items": sum(1 for m in matched if m.confidence > 0.8),
+            "requires_review": sum(1 for m in matched if m.confidence <= 0.8),
+        }
+
+    except Exception as exc:
+        logger.error(f"Failed to process document {document_id}: {exc}")
+        raise self.retry(exc=exc)
+```
+
+### Email Task
+
+```python
+# src/modules/notifications/tasks.py
+from celery import shared_task, group
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=60, queue="email")
+def send_email(self, to: str, template: str, data: dict, attachments: list | None = None):
+    """Send a single email."""
+    rendered = template_service.render(template, data)
+    email_service.send(to=to, subject=rendered.subject, html=rendered.html, text=rendered.text,
+                       attachments=attachments)
+
+# Usage
+def send_order_confirmation(order):
+    send_email.delay(
+        to=order.buyer_email,
+        template="order-confirmation",
+        data={"order_number": order.order_number, "items": order.line_items, "total": order.total},
     )
-  ],
-  exports: [BullModule]
-})
-export class QueueModule {}
 
-// Queue names constant
-export const QUEUES = {
-  DOCUMENT_PROCESSING: 'document-processing',
-  EMAIL: 'email',
-  NOTIFICATIONS: 'notifications',
-  DATA_IMPORT: 'data-import',
-  REPORTS: 'reports',
-  WEBHOOKS: 'webhooks'
-};
+def send_bulk_notification(emails: list[str], template: str, data: dict):
+    job_group = group(
+        send_email.s(email, template, data).set(priority=10) for email in emails
+    )
+    job_group.apply_async()
 ```
 
-### Job Producer
+### Scheduled Jobs (Celery Beat)
 
-```typescript
-// document-ai/services/document-processor.service.ts
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
+```python
+# celery_app.py — Beat schedule
+from celery.schedules import crontab
 
-@Injectable()
-export class DocumentProcessorService {
-  constructor(
-    @InjectQueue(QUEUES.DOCUMENT_PROCESSING)
-    private readonly documentQueue: Queue
-  ) {}
-
-  async processDocument(documentId: string, options: ProcessOptions = {}): Promise<string> {
-    const job = await this.documentQueue.add(
-      'parse-document',
-      {
-        documentId,
-        options
-      },
-      {
-        priority: options.urgent ? 1 : 5,
-        delay: options.delayMs,
-        jobId: `doc-${documentId}`,  // Deduplication
-      }
-    );
-
-    return job.id;
-  }
-
-  async processDocumentBatch(documentIds: string[]): Promise<string[]> {
-    const jobs = documentIds.map((id, index) => ({
-      name: 'parse-document',
-      data: { documentId: id },
-      opts: {
-        jobId: `doc-${id}`,
-        priority: 5,
-        delay: index * 100  // Stagger to prevent thundering herd
-      }
-    }));
-
-    const results = await this.documentQueue.addBulk(jobs);
-    return results.map(j => j.id);
-  }
-
-  async getJobStatus(jobId: string): Promise<JobStatus> {
-    const job = await this.documentQueue.getJob(jobId);
-    if (!job) return null;
-
-    const state = await job.getState();
-    return {
-      id: job.id,
-      state,
-      progress: job.progress,
-      attemptsMade: job.attemptsMade,
-      failedReason: job.failedReason,
-      processedOn: job.processedOn,
-      finishedOn: job.finishedOn
-    };
-  }
+celery.conf.beat_schedule = {
+    "sync-impa-catalog": {
+        "task": "src.modules.catalog.tasks.sync_impa_catalog",
+        "schedule": crontab(hour=2, minute=0),  # Daily at 2 AM
+    },
+    "cleanup-expired-sessions": {
+        "task": "src.modules.auth.tasks.cleanup_expired_sessions",
+        "schedule": 3600.0,  # Every hour
+    },
 }
+# Run: celery -A celery_app beat --loglevel=info
 ```
 
-### Job Consumer (Worker)
+### Flower Monitoring Dashboard
 
-```typescript
-// document-ai/processors/document.processor.ts
-import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
-import { Job } from 'bullmq';
+```bash
+# Run Flower for Celery monitoring (equivalent to Bull Board)
+celery -A celery_app flower --port=5555 --broker=redis://localhost:6379/0
 
-@Processor(QUEUES.DOCUMENT_PROCESSING, {
-  concurrency: 5,
-  limiter: {
-    max: 10,
-    duration: 1000  // 10 jobs per second
-  }
-})
-export class DocumentProcessor extends WorkerHost {
-  private readonly logger = new Logger(DocumentProcessor.name);
-
-  constructor(
-    private readonly parsingService: DocumentParsingService,
-    private readonly extractionService: ExtractionService,
-    private readonly matchingService: SkuMatchingService
-  ) {
-    super();
-  }
-
-  async process(job: Job<DocumentJobData>): Promise<ProcessingResult> {
-    const { documentId, options } = job.data;
-
-    this.logger.log(`Processing document ${documentId}`);
-
-    try {
-      // Step 1: Parse document
-      await job.updateProgress(10);
-      const parsed = await this.parsingService.parse(documentId);
-
-      // Step 2: Extract line items
-      await job.updateProgress(40);
-      const extracted = await this.extractionService.extract(parsed);
-
-      // Step 3: Match to SKUs
-      await job.updateProgress(70);
-      const matched = await this.matchingService.match(extracted);
-
-      // Step 4: Save results
-      await job.updateProgress(90);
-      await this.saveResults(documentId, matched);
-
-      await job.updateProgress(100);
-
-      return {
-        documentId,
-        lineItemsExtracted: extracted.length,
-        matchedItems: matched.filter(m => m.confidence > 0.8).length,
-        requiresReview: matched.filter(m => m.confidence <= 0.8).length
-      };
-
-    } catch (error) {
-      this.logger.error(`Failed to process document ${documentId}`, error.stack);
-      throw error;  // BullMQ will retry based on configuration
-    }
-  }
-
-  @OnWorkerEvent('completed')
-  onCompleted(job: Job) {
-    this.logger.log(`Job ${job.id} completed`);
-  }
-
-  @OnWorkerEvent('failed')
-  onFailed(job: Job, error: Error) {
-    this.logger.error(`Job ${job.id} failed: ${error.message}`);
-
-    // Notify if final failure
-    if (job.attemptsMade >= job.opts.attempts) {
-      this.notificationService.notifyJobFailure(job);
-    }
-  }
-
-  @OnWorkerEvent('progress')
-  onProgress(job: Job, progress: number) {
-    this.logger.debug(`Job ${job.id} progress: ${progress}%`);
-  }
-}
-
-interface DocumentJobData {
-  documentId: string;
-  options?: ProcessOptions;
-}
+# Access dashboard at http://localhost:5555
+# Features: real-time task monitoring, worker status, task history, rate control
 ```
 
-### Email Queue
+### Task Flow (Multi-Step Processing via Celery Canvas)
 
-```typescript
-// notifications/processors/email.processor.ts
-@Processor(QUEUES.EMAIL, { concurrency: 10 })
-export class EmailProcessor extends WorkerHost {
-  constructor(
-    private readonly emailService: EmailService,
-    private readonly templateService: TemplateService
-  ) {
-    super();
-  }
+```python
+# src/modules/document_ai/flows.py
+from celery import chain
+from .tasks import parse_document_step, extract_items_step, match_skus_step, save_results_step
 
-  async process(job: Job<EmailJobData>): Promise<void> {
-    const { to, template, data, attachments } = job.data;
-
-    // Render template
-    const { subject, html, text } = await this.templateService.render(
-      template,
-      data
-    );
-
-    // Send email
-    await this.emailService.send({
-      to,
-      subject,
-      html,
-      text,
-      attachments
-    });
-  }
-}
-
-// Usage
-@Injectable()
-export class NotificationService {
-  constructor(
-    @InjectQueue(QUEUES.EMAIL)
-    private readonly emailQueue: Queue
-  ) {}
-
-  async sendOrderConfirmation(order: Order): Promise<void> {
-    await this.emailQueue.add('send-email', {
-      to: order.buyer.email,
-      template: 'order-confirmation',
-      data: {
-        orderNumber: order.orderNumber,
-        items: order.lineItems,
-        total: order.total
-      }
-    });
-  }
-
-  async sendBulkNotification(
-    emails: string[],
-    template: string,
-    data: Record<string, any>
-  ): Promise<void> {
-    const jobs = emails.map(email => ({
-      name: 'send-email',
-      data: { to: email, template, data },
-      opts: { priority: 10 }  // Lower priority for bulk
-    }));
-
-    await this.emailQueue.addBulk(jobs);
-  }
-}
-```
-
-### Scheduled Jobs
-
-```typescript
-// scheduler/services/scheduler.service.ts
-@Injectable()
-export class SchedulerService {
-  constructor(
-    @InjectQueue(QUEUES.DATA_IMPORT)
-    private readonly importQueue: Queue
-  ) {}
-
-  async onModuleInit(): Promise<void> {
-    // Schedule recurring jobs
-    await this.importQueue.add(
-      'sync-impa-catalog',
-      {},
-      {
-        repeat: {
-          pattern: '0 2 * * *'  // Daily at 2 AM
-        },
-        jobId: 'impa-sync'  // Prevent duplicates
-      }
-    );
-
-    await this.importQueue.add(
-      'cleanup-expired-sessions',
-      {},
-      {
-        repeat: {
-          every: 3600000  // Every hour
-        },
-        jobId: 'session-cleanup'
-      }
-    );
-  }
-
-  async pauseScheduledJob(jobId: string): Promise<void> {
-    const repeatableJobs = await this.importQueue.getRepeatableJobs();
-    const job = repeatableJobs.find(j => j.id === jobId);
-
-    if (job) {
-      await this.importQueue.removeRepeatableByKey(job.key);
-    }
-  }
-}
-```
-
-### Bull Board Dashboard
-
-```typescript
-// queue/queue-dashboard.module.ts
-import { BullBoardModule } from '@bull-board/nestjs';
-import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
-
-@Module({
-  imports: [
-    BullBoardModule.forRoot({
-      route: '/admin/queues',
-      adapter: BullMQAdapter
-    }),
-    BullBoardModule.forFeature({
-      name: QUEUES.DOCUMENT_PROCESSING,
-      adapter: BullMQAdapter
-    }),
-    BullBoardModule.forFeature({
-      name: QUEUES.EMAIL,
-      adapter: BullMQAdapter
-    }),
-    // ... other queues
-  ]
-})
-export class QueueDashboardModule {}
-```
-
-### Job Flow (Multi-Step Processing)
-
-```typescript
-// document-ai/flows/document-processing.flow.ts
-import { FlowProducer } from 'bullmq';
-
-@Injectable()
-export class DocumentProcessingFlow {
-  private flowProducer: FlowProducer;
-
-  constructor(
-    @Inject('REDIS_CONNECTION')
-    private readonly redis: Redis
-  ) {
-    this.flowProducer = new FlowProducer({ connection: redis });
-  }
-
-  async createProcessingFlow(documentId: string): Promise<string> {
-    const flow = await this.flowProducer.add({
-      name: 'complete-processing',
-      queueName: QUEUES.DOCUMENT_PROCESSING,
-      data: { documentId },
-      children: [
-        {
-          name: 'match-skus',
-          queueName: QUEUES.DOCUMENT_PROCESSING,
-          data: { documentId },
-          children: [
-            {
-              name: 'extract-items',
-              queueName: QUEUES.DOCUMENT_PROCESSING,
-              data: { documentId },
-              children: [
-                {
-                  name: 'parse-document',
-                  queueName: QUEUES.DOCUMENT_PROCESSING,
-                  data: { documentId }
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    });
-
-    return flow.job.id;
-  }
-}
+def create_processing_flow(document_id: str) -> str:
+    """Chain tasks sequentially: parse -> extract -> match -> save."""
+    workflow = chain(
+        parse_document_step.s(document_id),
+        extract_items_step.s(),
+        match_skus_step.s(),
+        save_results_step.s(document_id),
+    )
+    result = workflow.apply_async()
+    return result.id
 ```
 
 ### Dependencies
@@ -554,12 +348,12 @@ export class DocumentProcessingFlow {
 - ADR-NF-009: Event-Driven Communication
 
 ### Migration Strategy
-1. Set up BullMQ module in NestJS
-2. Create queue configurations
-3. Implement document processing queue
-4. Add email/notification queues
-5. Set up scheduled jobs
-6. Deploy Bull Board for monitoring
+1. Set up Celery with Redis broker
+2. Create task routing and queue configurations
+3. Implement document processing tasks
+4. Add email/notification tasks
+5. Set up scheduled jobs via Celery Beat
+6. Deploy Flower for monitoring
 7. Scale workers as needed
 
 ---
@@ -576,74 +370,38 @@ export class DocumentProcessingFlow {
 | data-export | 2 | Fixed | 5min | 5min |
 | scheduled-tasks | 1 | None | - | - |
 
-```typescript
-// Queue configuration with retry policy
-@Module({
-  imports: [
-    BullModule.registerQueue({
-      name: 'document-processing',
-      defaultJobOptions: {
-        attempts: 5,
-        backoff: {
-          type: 'exponential',
-          delay: 30000, // 30 seconds initial
-        },
-        removeOnComplete: 100, // Keep last 100 completed
-        removeOnFail: 500,     // Keep last 500 failed for analysis
-      },
-    }),
-  ],
-})
+```python
+# Celery task with retry policy
+@shared_task(bind=True, max_retries=5, default_retry_delay=30,
+             autoretry_for=(Exception,), retry_backoff=True, retry_backoff_max=600)
+def process_document(self, document_id: str):
+    ...
 ```
 
 ### Dead Letter Queue (DLQ) Handling
 
-```typescript
-// DLQ processor for failed jobs
-@Processor('dead-letter')
-export class DeadLetterProcessor {
-  @Process()
-  async handleDeadLetter(job: Job<FailedJobData>) {
-    // 1. Log detailed failure info
-    this.logger.error('Job permanently failed', {
-      originalQueue: job.data.originalQueue,
-      jobId: job.data.originalJobId,
-      error: job.data.error,
-      attempts: job.data.attempts,
-    });
+```python
+# Celery signal-based DLQ handling
+from celery.signals import task_failure
 
-    // 2. Alert on critical job failures
-    if (job.data.severity === 'critical') {
-      await this.alertService.sendPagerDuty({
-        title: `Critical job failed: ${job.data.originalQueue}`,
-        details: job.data.error,
-      });
-    }
-
-    // 3. Store for manual review
-    await this.failedJobRepository.save({
-      queue: job.data.originalQueue,
-      payload: job.data.originalPayload,
-      error: job.data.error,
-      failedAt: new Date(),
-    });
-  }
-}
-
-// Move to DLQ after max retries
-@OnQueueFailed()
-async handleFailed(job: Job, error: Error) {
-  if (job.attemptsMade >= job.opts.attempts) {
-    await this.deadLetterQueue.add('failed-job', {
-      originalQueue: 'document-processing',
-      originalJobId: job.id,
-      originalPayload: job.data,
-      error: error.message,
-      attempts: job.attemptsMade,
-      severity: this.determineSeverity(job),
-    });
-  }
-}
+@task_failure.connect
+def handle_task_failure(sender=None, task_id=None, exception=None, args=None, kwargs=None,
+                        traceback=None, einfo=None, **kw):
+    """Move permanently failed tasks to DLQ for manual review."""
+    if sender.request.retries >= sender.max_retries:
+        logger.error(f"Task permanently failed: {sender.name}", extra={
+            "task_id": task_id, "error": str(exception), "args": args,
+        })
+        # Store for manual review
+        failed_job_repository.save(
+            queue=sender.name, payload={"args": args, "kwargs": kwargs},
+            error=str(exception), failed_at=datetime.utcnow(),
+        )
+        # Alert on critical failures
+        if _is_critical(sender.name):
+            alert_service.send_pagerduty(
+                title=f"Critical task failed: {sender.name}", details=str(exception),
+            )
 ```
 
 ### Job Idempotency
@@ -655,26 +413,19 @@ async handleFailed(job: Job, error: Error) {
 | Webhook delivery | `webhook:${eventId}` | 1 hour |
 | Report generation | `report:${reportId}:${params}` | 5 minutes |
 
-```typescript
-// Idempotent job creation
-async queueDocumentProcessing(documentId: string) {
-  const jobId = `doc:${documentId}`;
+```python
+# Idempotent task creation
+from celery.result import AsyncResult
 
-  // Check if job already exists or completed recently
-  const existing = await this.queue.getJob(jobId);
-  if (existing) {
-    const state = await existing.getState();
-    if (['waiting', 'active', 'delayed'].includes(state)) {
-      return existing; // Job already queued
-    }
-  }
+def queue_document_processing(document_id: str):
+    task_id = f"doc:{document_id}"
+    existing = AsyncResult(task_id)
+    if existing.state in ("PENDING", "STARTED", "RETRY"):
+        return existing  # Task already queued
 
-  return this.queue.add(
-    'process-document',
-    { documentId },
-    { jobId, deduplication: { id: jobId, ttl: 3600000 } }
-  );
-}
+    return parse_document.apply_async(
+        args=[document_id], task_id=task_id,
+    )
 ```
 
 ## Redis High Availability
@@ -707,29 +458,22 @@ async queueDocumentProcessing(documentId: string) {
 | Network partition | Auto | Reconnect | Jobs retry |
 | Full cluster failure | Alert | Manual recovery | Recover from AOF |
 
-### BullMQ Failover Configuration
+### Celery Redis Failover Configuration
 
-```typescript
-const redisConnection = new Redis({
-  host: process.env.REDIS_HOST,
-  port: 6379,
-  maxRetriesPerRequest: 3,
-  retryStrategy: (times) => {
-    if (times > 10) return null; // Stop retrying
-    return Math.min(times * 200, 5000); // Exponential backoff
-  },
-  reconnectOnError: (err) => {
-    return err.message.includes('READONLY'); // Reconnect on failover
-  },
-});
+```python
+# celery_app.py — Redis connection with failover
+celery.conf.broker_transport_options = {
+    "max_retries": 10,
+    "interval_start": 0.2,
+    "interval_step": 0.5,
+    "interval_max": 5.0,
+    "retry_on_timeout": True,
+    "socket_keepalive": True,
+    "visibility_timeout": 60,  # 60s lock
+}
 
-// Worker with graceful shutdown
-const worker = new Worker('queue', processor, {
-  connection: redisConnection,
-  lockDuration: 60000,     // 60s lock
-  stalledInterval: 30000,  // Check stalled every 30s
-  maxStalledCount: 2,      // Retry stalled jobs twice
-});
+# Worker graceful shutdown: celery -A celery_app worker --concurrency=5
+# Celery handles SIGTERM gracefully, finishing current tasks before shutdown
 ```
 
 ## Job Latency Requirements
@@ -745,39 +489,25 @@ const worker = new Worker('queue', processor, {
 
 ### Latency Monitoring
 
-```typescript
-// Track job latency metrics
-@OnQueueCompleted()
-async handleCompleted(job: Job) {
-  const waitTime = job.processedOn - job.timestamp;
-  const processTime = Date.now() - job.processedOn;
+```python
+# Track task latency metrics via Celery signals
+from celery.signals import task_postrun
+import time
 
-  await this.metricsService.recordHistogram('job_wait_time', waitTime, {
-    queue: job.queueName,
-    jobType: job.name,
-  });
-
-  await this.metricsService.recordHistogram('job_process_time', processTime, {
-    queue: job.queueName,
-    jobType: job.name,
-  });
-
-  // Alert if SLA breached
-  const sla = this.getSLA(job.queueName);
-  if (waitTime + processTime > sla) {
-    this.logger.warn('Job SLA breached', {
-      jobId: job.id,
-      queue: job.queueName,
-      totalTime: waitTime + processTime,
-      sla,
-    });
-  }
-}
+@task_postrun.connect
+def track_task_latency(sender=None, task_id=None, state=None, retval=None, **kwargs):
+    runtime = kwargs.get("runtime", 0)
+    metrics_service.record_histogram("task_process_time", runtime, labels={
+        "task": sender.name, "state": state,
+    })
+    sla = get_sla(sender.name)
+    if runtime > sla:
+        logger.warning(f"Task SLA breached: {sender.name} took {runtime}s (SLA: {sla}s)")
 ```
 
 ---
 
 ## References
-- [BullMQ Documentation](https://docs.bullmq.io/)
-- [NestJS BullMQ Integration](https://docs.nestjs.com/techniques/queues)
-- [Bull Board](https://github.com/felixmosh/bull-board)
+- [Celery Documentation](https://docs.celeryq.dev/)
+- [Celery Best Practices](https://docs.celeryq.dev/en/stable/userguide/tasks.html)
+- [Flower Monitoring](https://flower.readthedocs.io/)

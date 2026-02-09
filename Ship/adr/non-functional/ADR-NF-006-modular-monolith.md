@@ -20,7 +20,8 @@ As a startup platform, priorities are:
 Premature microservices adoption is a leading cause of B2B platform failures due to operational complexity.
 
 ### Technical Context
-- NestJS as backend framework (TypeScript/Node.js)
+- FastAPI as backend framework (Python/asyncio)
+- SQLAlchemy 2.0 as ORM with async support
 - PostgreSQL as primary database
 - Team size: small to medium
 - Initial traffic: moderate, growing
@@ -30,7 +31,7 @@ Premature microservices adoption is a leading cause of B2B platform failures due
 - Team can manage single deployment
 - Traffic can be handled by vertical scaling initially
 - Modular code structure allows future extraction
-- NestJS modules provide logical separation
+- Python package/module system provides logical separation
 
 ---
 
@@ -48,7 +49,7 @@ Premature microservices adoption is a leading cause of B2B platform failures due
 ## Considered Options
 
 ### Option 1: Modular Monolith
-**Description:** Single deployable with well-defined NestJS modules and clear boundaries.
+**Description:** Single deployable with well-defined Python modules and clear boundaries.
 
 **Pros:**
 - Simple deployment
@@ -101,10 +102,10 @@ Premature microservices adoption is a leading cause of B2B platform failures due
 
 **Chosen Option:** Modular Monolith
 
-We will build a modular monolith using NestJS, with clear module boundaries that enable future extraction to microservices if needed.
+We will build a modular monolith using FastAPI with Python package modules, with clear module boundaries that enable future extraction to microservices if needed.
 
 ### Rationale
-A modular monolith provides the development velocity needed for a startup while maintaining clear boundaries for future decomposition. NestJS's module system naturally supports this pattern. The complexity of distributed systems is avoided until it's actually necessary, following the principle of "microservices as the destination, not the starting point."
+A modular monolith provides the development velocity needed for a startup while maintaining clear boundaries for future decomposition. FastAPI's router system and Python's package structure naturally support this pattern. The complexity of distributed systems is avoided until it's actually necessary, following the principle of "microservices as the destination, not the starting point."
 
 ---
 
@@ -136,241 +137,169 @@ A modular monolith provides the development velocity needed for a startup while 
 
 ```
 src/
-├── main.ts
-├── app.module.ts
-├── common/                    # Shared utilities, decorators, guards
-│   ├── decorators/
-│   ├── guards/
-│   ├── filters/
-│   ├── interceptors/
-│   └── pipes/
+├── app.py                     # FastAPI app factory, lifespan, middleware
+├── config.py                  # Pydantic Settings for environment
+├── database/                  # Database configuration
+│   ├── __init__.py
+│   ├── engine.py              # Async SQLAlchemy engine & session
+│   ├── base.py                # DeclarativeBase with common columns
+│   ├── session.py             # get_db dependency
+│   └── tenant.py              # Tenant context (set_config)
 │
-├── config/                    # Configuration module
-│   ├── config.module.ts
-│   └── configuration.ts
+├── models/                    # SQLAlchemy models (shared, single source of truth)
+│   ├── __init__.py
+│   ├── enums.py
+│   ├── organization.py
+│   ├── user.py
+│   ├── category.py
+│   ├── product.py
+│   └── ...
 │
 ├── modules/
 │   ├── auth/                  # Authentication module
-│   │   ├── auth.module.ts
-│   │   ├── auth.controller.ts
-│   │   ├── auth.service.ts
-│   │   ├── strategies/
-│   │   ├── guards/
-│   │   └── dto/
+│   │   ├── __init__.py
+│   │   ├── router.py
+│   │   ├── service.py
+│   │   ├── schemas.py
+│   │   └── dependencies.py
 │   │
 │   ├── users/                 # User management module
-│   │   ├── users.module.ts
-│   │   ├── users.controller.ts
-│   │   ├── users.service.ts
-│   │   ├── entities/
-│   │   └── dto/
-│   │
-│   ├── organizations/         # Organization/tenant module
-│   │   ├── organizations.module.ts
-│   │   └── ...
+│   │   ├── __init__.py
+│   │   ├── router.py
+│   │   ├── service.py
+│   │   └── schemas.py
 │   │
 │   ├── catalog/               # Product catalog module
-│   │   ├── catalog.module.ts
-│   │   ├── products/
-│   │   │   ├── products.controller.ts
-│   │   │   ├── products.service.ts
-│   │   │   └── ...
-│   │   ├── categories/
-│   │   └── suppliers/
+│   │   ├── __init__.py
+│   │   ├── router.py
+│   │   ├── service.py
+│   │   └── schemas.py
+│   │
+│   ├── search/                # Vector search module
+│   │   ├── __init__.py
+│   │   ├── router.py
+│   │   ├── service.py
+│   │   ├── embedding.py
+│   │   ├── reranking.py
+│   │   └── tasks.py           # Celery tasks
+│   │
+│   ├── tenancy/               # Multi-tenant RLS module
+│   │   ├── __init__.py
+│   │   ├── middleware.py
+│   │   ├── dependencies.py
+│   │   ├── service.py
+│   │   └── admin.py
 │   │
 │   ├── procurement/           # RFQ and bidding module
-│   │   ├── procurement.module.ts
-│   │   ├── rfq/
-│   │   ├── quotes/
-│   │   └── auctions/
-│   │
 │   ├── orders/                # Order management module
-│   │   ├── orders.module.ts
-│   │   ├── orders/
-│   │   └── fulfillment/
-│   │
-│   ├── document-ai/           # Document processing module
-│   │   ├── document-ai.module.ts
-│   │   ├── parsing/
-│   │   ├── extraction/
-│   │   └── matching/
-│   │
+│   ├── document_ai/           # Document processing module
 │   ├── finance/               # Invoice financing module
-│   │   ├── finance.module.ts
-│   │   ├── invoices/
-│   │   └── financing/
-│   │
 │   ├── maritime/              # AIS and port data module
-│   │   ├── maritime.module.ts
-│   │   ├── vessels/
-│   │   └── ports/
-│   │
 │   └── notifications/         # Notifications module
-│       ├── notifications.module.ts
-│       ├── email/
-│       ├── sms/
-│       └── push/
 │
-└── database/                  # Database configuration
-    ├── database.module.ts
-    ├── migrations/
-    └── seeds/
+├── seed.py                    # Database seeder
+celery_app.py                  # Celery configuration
+alembic/                       # Alembic migrations
+tests/                         # pytest test suite
 ```
 
 ### Module Boundaries
 
-```typescript
-// catalog/catalog.module.ts
-@Module({
-  imports: [
-    DatabaseModule,
-    CacheModule,
-    // Only import what's needed
-  ],
-  controllers: [
-    ProductsController,
-    CategoriesController
-  ],
-  providers: [
-    ProductsService,
-    CategoriesService,
-    ProductRepository,
-    CategoryRepository
-  ],
-  exports: [
-    // Public API for other modules
-    ProductsService,
-    CategoriesService
-  ]
-})
-export class CatalogModule {}
+```python
+# src/modules/catalog/__init__.py
+# Public API for other modules — import only from here
+from .service import CatalogService, CategoryService
 
-// procurement/procurement.module.ts
-@Module({
-  imports: [
-    DatabaseModule,
-    CacheModule,
-    CatalogModule,  // Depends on catalog
-    UsersModule,    // Depends on users
-    EventEmitterModule.forFeature()
-  ],
-  controllers: [
-    RfqController,
-    QuotesController,
-    AuctionController
-  ],
-  providers: [
-    RfqService,
-    QuotesService,
-    AuctionService,
-    RfqStateMachine,
-    RfqRepository,
-    QuoteRepository
-  ],
-  exports: [
-    RfqService,
-    QuotesService
-  ]
-})
-export class ProcurementModule {}
+# src/modules/catalog/router.py
+from fastapi import APIRouter, Depends
+from src.database.session import get_db
+
+router = APIRouter(prefix="/api/v1/products", tags=["Products"])
+
+@router.get("/")
+async def list_products(db=Depends(get_db)):
+    ...
+
+# src/app.py — Register module routers
+from src.modules.catalog.router import router as catalog_router
+from src.modules.search.router import router as search_router
+
+app.include_router(catalog_router)
+app.include_router(search_router)
 ```
 
 ### Inter-Module Communication
 
-```typescript
-// Option 1: Direct service injection (simple cases)
-@Injectable()
-export class OrdersService {
-  constructor(
-    private readonly productsService: ProductsService,
-    private readonly usersService: UsersService
-  ) {}
+```python
+# Option 1: Direct service import (simple cases)
+# src/modules/orders/service.py
+from src.modules.catalog import CatalogService
 
-  async createOrder(dto: CreateOrderDto): Promise<Order> {
-    // Validate products exist
-    const products = await this.productsService.findByIds(dto.productIds);
-    // ...
-  }
-}
+class OrdersService:
+    def __init__(self, db: AsyncSession, catalog: CatalogService):
+        self.db = db
+        self.catalog = catalog
 
-// Option 2: Event-driven (loose coupling)
-@Injectable()
-export class OrdersService {
-  constructor(private readonly eventEmitter: EventEmitter2) {}
+    async def create_order(self, dto):
+        products = await self.catalog.find_by_ids(dto.product_ids)
+        ...
 
-  async completeOrder(orderId: string): Promise<void> {
-    const order = await this.updateStatus(orderId, 'COMPLETED');
+# Option 2: Event-driven via Celery (loose coupling)
+# src/modules/orders/service.py
+from src.modules.notifications.tasks import send_order_confirmation
 
-    // Emit event for other modules to react
-    this.eventEmitter.emit('order.completed', {
-      orderId: order.id,
-      buyerOrgId: order.buyerOrgId,
-      total: order.total
-    });
-  }
-}
-
-// In notifications module
-@Injectable()
-export class OrderNotificationHandler {
-  @OnEvent('order.completed')
-  async handleOrderCompleted(event: OrderCompletedEvent): Promise<void> {
-    await this.notificationService.sendOrderConfirmation(event.orderId);
-  }
-}
+class OrdersService:
+    async def complete_order(self, order_id: str):
+        order = await self._update_status(order_id, "COMPLETED")
+        # Dispatch async task for other modules
+        send_order_confirmation.delay(order.id)
 ```
 
 ### Module Interface Contract
 
-```typescript
-// catalog/interfaces/catalog-service.interface.ts
-// Define interface for external consumers
-export interface ICatalogService {
-  findProductById(id: string): Promise<Product>;
-  findProductsByIds(ids: string[]): Promise<Product[]>;
-  searchProducts(query: string, filters: ProductFilters): Promise<Product[]>;
-  validateProductAvailability(productId: string, quantity: number): Promise<boolean>;
-}
+```python
+# src/modules/catalog/__init__.py
+# Define public API for external consumers via __init__.py exports
+# This acts as a contract — changes require coordination
+# If this module were extracted to a service, the interface stays the same
 
-// This interface acts as a contract - changes require coordination
-// If this module were extracted to a service, the interface stays the same
+from .service import CatalogService  # noqa: F401
+
+# Protocol for type safety (optional, for strict typing)
+from typing import Protocol
+
+class ICatalogService(Protocol):
+    async def find_product_by_id(self, product_id: str) -> Product: ...
+    async def find_products_by_ids(self, ids: list[str]) -> list[Product]: ...
+    async def search_products(self, query: str, filters: dict) -> list[Product]: ...
 ```
 
 ### Avoiding Module Coupling
 
-```typescript
-// BAD: Direct database access across modules
-@Injectable()
-export class OrdersService {
-  constructor(
-    @InjectRepository(Product) // Don't inject other module's entities!
-    private productRepo: Repository<Product>
-  ) {}
-}
+```python
+# BAD: Direct model query across modules
+from src.models.product import Product
+result = await db.execute(select(Product))  # Don't query other module's models directly!
 
-// GOOD: Use exported services
-@Injectable()
-export class OrdersService {
-  constructor(
-    private readonly catalogService: CatalogService // Use the public API
-  ) {}
-}
+# GOOD: Use exported services
+from src.modules.catalog import CatalogService
+products = await catalog_service.find_by_ids(ids)
 
-// BAD: Importing internal module classes
-import { ProductRepository } from '../catalog/repositories/product.repository';
+# BAD: Importing internal module classes
+from src.modules.catalog.repository import ProductRepository
 
-// GOOD: Import from module index
-import { CatalogService } from '../catalog';
+# GOOD: Import from module __init__
+from src.modules.catalog import CatalogService
 ```
 
 ### Scaling Strategy (When Needed)
 
 ```
 Phase 1: Single Instance
-└── Modular Monolith on ECS Fargate
+└── Modular Monolith on ECS Fargate (uvicorn)
 
 Phase 2: Horizontal Scaling
-└── Multiple Monolith instances behind ALB
+└── Multiple uvicorn instances behind ALB
 └── Stateless design, Redis for session
 
 Phase 3: Selective Extraction (if needed)
@@ -390,11 +319,11 @@ Phase 4: Full Microservices (if justified)
 - ADR-NF-009: Event-Driven Communication
 
 ### Migration Strategy
-1. Set up NestJS project with module structure
+1. Set up FastAPI project with module structure
 2. Define module boundaries and interfaces
 3. Implement core modules (auth, users, catalog)
 4. Add business modules (procurement, orders)
-5. Implement cross-cutting concerns (caching, events)
+5. Implement cross-cutting concerns (caching, events via Celery)
 6. Monitor for extraction candidates
 
 ---
@@ -418,36 +347,33 @@ Phase 4: Full Microservices (if justified)
 
 ### Boundary Rules
 
-```typescript
-// RULE 1: Modules own their database tables exclusively
-// Only catalog module can write to products table
-// Other modules read via CatalogService
+```python
+# RULE 1: Modules own their database tables exclusively
+# Only catalog module can write to products table
+# Other modules read via CatalogService
 
-// RULE 2: Cross-module communication via exported services only
-@Module({
-  exports: [CatalogService] // Public API
-  // ProductRepository is NOT exported
-})
-export class CatalogModule {}
+# RULE 2: Cross-module communication via __init__.py exports only
+# src/modules/catalog/__init__.py
+from .service import CatalogService  # Public API
+# _repository is NOT exported
 
-// RULE 3: Events for async, loose coupling
-// procurement module emits events, orders module subscribes
-@OnEvent('rfq.awarded')
-handleRfqAwarded(event: RfqAwardedEvent) {}
+# RULE 3: Events for async, loose coupling via Celery tasks
+# procurement module dispatches tasks, notifications module processes
+# send_rfq_awarded_notification.delay(rfq_id)
 
-// RULE 4: No circular dependencies
-// Allowed: orders → catalog, procurement → catalog
-// Not allowed: catalog → orders → catalog
+# RULE 4: No circular dependencies
+# Allowed: orders → catalog, procurement → catalog
+# Not allowed: catalog → orders → catalog
 ```
 
 ### Coupling Prevention Checklist
 
-- [ ] Each module has a clearly defined `index.ts` exporting only public API
-- [ ] No direct entity imports across modules
+- [ ] Each module has a clearly defined `__init__.py` exporting only public API
+- [ ] No direct model imports across modules
 - [ ] No shared mutable state between modules
 - [ ] Cross-module calls go through service interfaces
 - [ ] Database migrations scoped to single module
-- [ ] ESLint rules enforce import boundaries
+- [ ] import-linter rules enforce import boundaries
 
 ## Service Extraction Criteria
 
@@ -501,6 +427,6 @@ Before extracting a module to a service:
 
 ## References
 - [Modular Monolith Pattern](https://www.kamilgrzybek.com/design/modular-monolith-primer/)
-- [NestJS Modules](https://docs.nestjs.com/modules)
+- [FastAPI Project Structure](https://fastapi.tiangolo.com/tutorial/bigger-applications/)
 - [Microservices Prerequisites](https://martinfowler.com/bliki/MicroservicePrerequisites.html)
 - [Monolith First](https://martinfowler.com/bliki/MonolithFirst.html)

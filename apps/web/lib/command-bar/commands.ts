@@ -107,6 +107,14 @@ export function getActionCommands(push: (path: string) => void): CommandItem[] {
       onSelect: () => push("/products?action=create"),
     },
     {
+      id: "action-create-rfq",
+      label: "Create RFQ",
+      icon: FileText,
+      group: "actions",
+      keywords: ["new", "rfq", "request", "quote", "procurement"],
+      onSelect: () => push("/rfqs/create"),
+    },
+    {
       id: "action-export-catalog",
       label: "Export Catalog",
       icon: Download,

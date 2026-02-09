@@ -35,6 +35,12 @@ celery.conf.update(
         "src.modules.rfq.tasks.auto_close_bidding": {"queue": "rfq-bidding"},
         "src.modules.rfq.tasks.auto_archive_drafts": {"queue": "rfq-bidding"},
         "src.modules.rfq.tasks.expire_pending_invitations": {"queue": "rfq-bidding"},
+        # Intelligence
+        "src.modules.intelligence.tasks.*": {"queue": "intelligence"},
+        # Document AI
+        "src.modules.document_ai.tasks.*": {"queue": "document-processing"},
+        # TCO Engine
+        "src.modules.tco.tasks.*": {"queue": "tco-engine"},
     },
     # --- Reliability settings ---
     task_default_retry_delay=60,
@@ -93,6 +99,20 @@ celery.conf.update(
             "task": "src.modules.rfq.tasks.expire_pending_invitations",
             "schedule": 300,
         },
+        # Intelligence materialized view refresh
+        "intelligence-refresh-price-benchmarks": {
+            "task": "src.modules.intelligence.tasks.refresh_price_benchmarks",
+            "schedule": crontab(hour=settings.intelligence_mv_refresh_hour, minute=0),
+        },
+        "intelligence-refresh-supplier-scores": {
+            "task": "src.modules.intelligence.tasks.refresh_supplier_scores",
+            "schedule": crontab(hour=settings.intelligence_supplier_score_refresh_hour, minute=30),
+        },
+        # TCO Engine
+        "tco-cleanup-stale-calculations": {
+            "task": "src.modules.tco.tasks.cleanup_stale_calculations",
+            "schedule": crontab(hour=4, minute=30),
+        },
     },
 )
 
@@ -102,4 +122,7 @@ celery.autodiscover_tasks([
     "src.modules.vessel",
     "src.modules.events",
     "src.modules.rfq",
+    "src.modules.intelligence",
+    "src.modules.document_ai",
+    "src.modules.tco",
 ])

@@ -1216,6 +1216,122 @@ export function ReviewMetricsDashboard({ period }: ReviewMetricsProps) {
 
 ---
 
+## Maritime Document Types & IMPA Matching Pipeline
+
+*Added 2026-02-08 based on AI-native RFQ creation research*
+
+### Document Types in Maritime Procurement
+
+Ship captains and fleet managers handle 8 primary document types when creating RFQs. Each has different extraction characteristics:
+
+| Document Type | Format | Expected Auto-Match Rate | Extraction Difficulty | Azure DI Model |
+|---|---|---|---|---|
+| System-generated requisitions (AMOS, SERTICA) | PDF/XLSX | 85-95% | Low | `prebuilt-layout` |
+| Previous purchase orders | PDF/XLSX | 90-98% | Low | `prebuilt-layout` |
+| Inventory/stock lists (below-threshold reports) | XLSX | 85-95% | Low | `prebuilt-layout` |
+| PMS/maintenance exports | PDF/XLSX | 60-80% | Medium | `prebuilt-layout` |
+| Handwritten requisition forms | Scanned PDF/Image | 40-65% | High | `prebuilt-read` |
+| Marked vendor catalogs (circled/highlighted) | Scanned PDF/Image | 30-60% | High | `prebuilt-read` |
+| Equipment nameplate photos | Image (JPEG/PNG) | 20-50% | Very High | `prebuilt-read` |
+| Mixed typed/handwritten forms | Scanned PDF | 50-75% | High | `prebuilt-layout` |
+
+**Model selection rationale:**
+- `prebuilt-layout` — Primary workhorse. Detects tables with cell relationships (merged cells, multi-row headers), outputs Markdown format ideal for LLM consumption. Handles PDF, XLSX, DOCX natively. Cost: ~$1.50/1,000 pages.
+- `prebuilt-read` — Optimized for OCR on photos and handwritten text. Better for equipment nameplates and handwritten annotations.
+
+### Three-Stage IMPA Matching Pipeline
+
+For each extracted line item, matching proceeds through three stages:
+
+**Stage 1: Exact IMPA Code Detection**
+```
+Pattern: \b\d{6}\b (with context validation against known IMPA range)
+```
+If a valid 6-digit IMPA code is found in the document text, it is used directly. This handles system-generated requisitions that already contain IMPA codes. Expected hit rate: 40-60% of items in digital requisitions.
+
+**Stage 2: pgvector Semantic Search**
+For items without explicit IMPA codes, the normalized item description is embedded and nearest-neighbor searched:
+```sql
+SELECT id, impa_code, name, 1 - (embedding <=> query_embedding) AS similarity
+FROM products
+WHERE 1 - (embedding <=> query_embedding) > 0.6
+ORDER BY embedding <=> query_embedding
+LIMIT 5;
+```
+Leverages existing pgvector infrastructure (ADR-NF-002). Product catalog embeddings are pre-computed and indexed.
+
+**Stage 3: LLM-Assisted Disambiguation**
+When pgvector returns ambiguous results (top match < 0.8 similarity, or top-3 are close), an LLM call disambiguates using maritime domain context:
+- "SS" typically means Stainless Steel
+- Size "M12x50" means M12 thread, 50mm length
+- "Bolt" in deck context likely refers to hex bolts
+
+The LLM returns the best match with a confidence score and reasoning. Maritime synonym expansion (Phase 0.4) aids: "SS" → "stainless steel", "bolt" → "fastener".
+
+### Quantity and Unit Normalization
+
+Maritime documents use inconsistent unit abbreviations. The extraction pipeline normalizes to standard units:
+
+| Detected Variants | Normalized Unit |
+|---|---|
+| pcs, pce, pieces, ea, each, nos | pcs |
+| kg, kgs, kilos, kilogram | kg |
+| m, mtr, mtrs, meters, metres | m |
+| l, ltr, ltrs, liters, litres | L |
+| sets, set | set |
+| rolls, roll, rls | roll |
+| drums, drum, drm | drum |
+| boxes, box, bx | box |
+| tins, tin, cans, can | tin |
+| bottles, bottle, btl | bottle |
+
+Implicit quantities ("as required", "sufficient") are flagged as `confidence < 0.5` and routed to full review.
+
+### Multi-Document Deduplication
+
+When multiple documents are uploaded simultaneously for a single RFQ:
+
+1. **Parallel processing** — Each document enters the pipeline independently
+2. **Progressive display** — Line items appear in the table as each document completes
+3. **Source tagging** — Each line item shows which document it came from
+4. **Deduplication logic** — Same IMPA code with similar quantities across documents flagged as potential duplicate. Presented to user: "Found IMPA 530215 in both 'mv-star-req.pdf' (qty: 50) and 'maintenance-report.xlsx' (qty: 30). Merge to 80 pcs?"
+5. **Per-document summary** — Extraction results shown per document before consolidated view
+
+### Integration with RFQ Creation
+
+Extracted items map directly to `RfqLineItemCreate` schema:
+
+| Extracted Field | RFQ Line Item Field | Mapping Logic |
+|---|---|---|
+| Detected line number | `line_number` | Use detected order, or auto-increment |
+| IMPA code (if in document) | `impa_code` | Direct mapping if valid 6-digit code |
+| Matched IMPA product | `product_id` | UUID from product catalog lookup |
+| Normalized description | `description` | LLM-cleaned description (max 500 chars) |
+| Detected quantity | `quantity` | Parsed number, validated > 0 |
+| Detected unit | `unit_of_measure` | Normalized per table above |
+| Detected specifications | `specifications` | JSON dict of key-value pairs |
+| Original text / notes | `notes` | Raw extracted text for reference |
+
+### Backend Pipeline (Celery)
+
+The extraction pipeline runs as chained Celery tasks:
+
+```
+Task chain:
+  1. parse_document       — Calls Azure DI, stores raw extraction result
+  2. normalize_line_items — LLM normalization in batches of 20 items
+  3. match_sku            — 3-stage IMPA matching per item
+  4. route_by_confidence  — Sorts items into auto/quick/full tiers per thresholds above
+```
+
+WebSocket/SSE events push progress to the frontend at each stage transition:
+1. "Reading document structure..."
+2. "Found 85 line items"
+3. "Matching to IMPA catalog... 72 of 85"
+4. "Done! 80 matched, 5 need review"
+
+---
+
 ## References
 - [Human-in-the-Loop ML Patterns](https://cloud.google.com/architecture/human-in-the-loop-machine-learning)
 - [Confidence Calibration in ML](https://arxiv.org/abs/1706.04599)

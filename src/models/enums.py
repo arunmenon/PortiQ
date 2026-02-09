@@ -215,3 +215,53 @@ class InvitationStatus(str, enum.Enum):
     ACCEPTED = "ACCEPTED"
     DECLINED = "DECLINED"
     EXPIRED = "EXPIRED"
+
+
+# ── Phase 4.3: Document AI ────────────────────────────────────────────
+
+
+class ExtractionStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    PARSING = "PARSING"
+    NORMALIZING = "NORMALIZING"
+    MATCHING = "MATCHING"
+    ROUTING = "ROUTING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+
+class ExtractionConfidenceTier(str, enum.Enum):
+    AUTO = "AUTO"           # >= 95% — auto-accepted
+    QUICK_REVIEW = "QUICK_REVIEW"  # 80-94% — quick review
+    FULL_REVIEW = "FULL_REVIEW"    # < 80% — full human review
+
+
+class DocumentType(str, enum.Enum):
+    SYSTEM_REQUISITION = "SYSTEM_REQUISITION"
+    PURCHASE_ORDER = "PURCHASE_ORDER"
+    INVENTORY_LIST = "INVENTORY_LIST"
+    MAINTENANCE_EXPORT = "MAINTENANCE_EXPORT"
+    HANDWRITTEN_FORM = "HANDWRITTEN_FORM"
+    MARKED_CATALOG = "MARKED_CATALOG"
+    NAMEPLATE_PHOTO = "NAMEPLATE_PHOTO"
+    MIXED_FORM = "MIXED_FORM"
+
+
+# ── Phase 3.4: TCO Engine ────────────────────────────────────────────
+
+
+class TcoCalculationStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    CALCULATING = "CALCULATING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    STALE = "STALE"
+
+
+class TcoTemplateType(str, enum.Enum):
+    COMMODITY = "COMMODITY"
+    TECHNICAL = "TECHNICAL"
+    URGENT = "URGENT"
+    STRATEGIC = "STRATEGIC"
+    QUALITY_CRITICAL = "QUALITY_CRITICAL"
+    CUSTOM = "CUSTOM"

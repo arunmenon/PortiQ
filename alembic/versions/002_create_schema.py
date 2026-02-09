@@ -17,36 +17,29 @@ down_revision: Union[str, None] = "001"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-# --- Enum types ---
+# --- Enum types (create_type=True lets SQLAlchemy handle creation during create_table) ---
 organization_type_enum = sa.Enum(
-    "BUYER", "SUPPLIER", "BOTH", name="organizationtype", create_type=True
+    "BUYER", "SUPPLIER", "BOTH", name="organizationtype"
 )
 user_role_enum = sa.Enum(
-    "OWNER", "ADMIN", "MEMBER", "VIEWER", name="userrole", create_type=True
+    "OWNER", "ADMIN", "MEMBER", "VIEWER", name="userrole"
 )
 category_status_enum = sa.Enum(
     "ACTIVE", "DEPRECATED", "PENDING_MIGRATION", "ARCHIVED",
-    name="categorystatus", create_type=True,
+    name="categorystatus",
 )
 unit_type_enum = sa.Enum(
-    "QUANTITY", "VOLUME", "WEIGHT", "LENGTH", name="unittype", create_type=True
+    "QUANTITY", "VOLUME", "WEIGHT", "LENGTH", name="unittype"
 )
 tag_type_enum = sa.Enum(
-    "RELATED", "ALSO_IN", "SUBSTITUTE", "ACCESSORY", name="tagtype", create_type=True
+    "RELATED", "ALSO_IN", "SUBSTITUTE", "ACCESSORY", name="tagtype"
 )
 tag_source_enum = sa.Enum(
-    "MANUAL", "ML_MODEL", "IMPA_MAPPING", name="tagsource", create_type=True
+    "MANUAL", "ML_MODEL", "IMPA_MAPPING", name="tagsource"
 )
 
 
 def upgrade() -> None:
-    # Create enum types first
-    organization_type_enum.create(op.get_bind(), checkfirst=True)
-    user_role_enum.create(op.get_bind(), checkfirst=True)
-    category_status_enum.create(op.get_bind(), checkfirst=True)
-    unit_type_enum.create(op.get_bind(), checkfirst=True)
-    tag_type_enum.create(op.get_bind(), checkfirst=True)
-    tag_source_enum.create(op.get_bind(), checkfirst=True)
 
     # 1. organizations
     op.create_table(

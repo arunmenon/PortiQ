@@ -23,6 +23,9 @@ class Settings(BaseSettings):
 
     # OpenAI
     openai_api_key: str = ""
+    openai_model: str = "gpt-4o"
+    portiq_max_tokens: int = 4096
+    portiq_max_tool_calls: int = 5
 
     # Redis / Celery
     redis_url: str = "redis://localhost:6379/0"
@@ -59,6 +62,21 @@ class Settings(BaseSettings):
     # RFQ & Bidding
     rfq_auto_close_poll_seconds: int = 60
     rfq_draft_ttl_days: int = 30
+
+    # Intelligence
+    intelligence_mv_refresh_hour: int = 2
+    intelligence_supplier_score_refresh_hour: int = 2
+    intelligence_price_benchmark_days: int = 90
+    intelligence_min_quotes_for_benchmark: int = 3
+
+    # Document AI
+    azure_di_endpoint: str = ""
+    azure_di_api_key: str = ""
+    azure_di_model_layout: str = "prebuilt-layout"
+    azure_di_model_read: str = "prebuilt-read"
+    extraction_auto_threshold: float = 0.95
+    extraction_quick_review_threshold: float = 0.80
+    extraction_batch_size: int = 20
 
     @property
     def cors_origins_list(self) -> list[str]:
