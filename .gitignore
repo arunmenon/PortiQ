@@ -21,6 +21,8 @@ venv/
 .coverage
 htmlcov/
 
+.claude/agents
+
 # Ruff
 .ruff_cache/
 

@@ -8,7 +8,17 @@
       "Bash(npm run:*)",
       "Bash(npx prisma:*)",
       "Bash(git status)",
-      "Bash(git diff)"
+      "Bash(git diff)",
+      "Bash(git log:*)",
+      "Bash(pytest:*)",
+      "Bash(uv sync:*)",
+      "Bash(uv run:*)",
+      "Bash(alembic:*)",
+      "Bash(ruff:*)",
+      "Bash(mypy:*)",
+      "Bash(python -m:*)",
+      "Bash(ls:*)",
+      "Bash(mkdir:*)"
     ]
   },
   "hooks": {
@@ -17,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/arunmenon/projects/ship-manager/Ship/adr/scripts/phase-validator.sh context"
+            "command": "./Ship/adr/scripts/phase-validator.sh context"
           }
         ]
       }
@@ -28,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/arunmenon/projects/ship-manager/Ship/adr/scripts/phase-validator.sh validate"
+            "command": "./Ship/adr/scripts/phase-validator.sh validate"
           }
         ]
       }
