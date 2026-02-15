@@ -8,7 +8,7 @@ This directory contains Architecture Decision Records for the B2B maritime ship 
 
 ## ADR Index
 
-### Functional ADRs (24)
+### Functional ADRs (29)
 
 | ID | Title | Status | Priority |
 |----|-------|--------|----------|
@@ -36,6 +36,11 @@ This directory contains Architecture Decision Records for the B2B maritime ship 
 | [ADR-FN-022](functional/ADR-FN-022-order-lifecycle-fulfillment.md) | Order Lifecycle & Fulfillment | Accepted | P1 |
 | [ADR-FN-023](functional/ADR-FN-023-multi-tenant-user-model.md) | Multi-Tenant User Model | Accepted | P0 |
 | [ADR-FN-024](functional/ADR-FN-024-fleet-management-erp-integration.md) | Fleet Management ERP Integration | Accepted | P2 |
+| [ADR-FN-025](functional/ADR-FN-025-delivery-proof-of-delivery.md) | Delivery Tracking & Proof-of-Delivery | Accepted | P0 |
+| [ADR-FN-026](functional/ADR-FN-026-dispute-resolution-workflow.md) | Dispute Resolution Workflow | Accepted | P0 |
+| [ADR-FN-027](functional/ADR-FN-027-settlement-invoice-generation.md) | Settlement Preparation & Invoice Generation | Accepted | P1 |
+| [ADR-FN-028](functional/ADR-FN-028-data-export-service.md) | Data Export Service (CSV/Excel/PDF) | Accepted | P1 |
+| [ADR-FN-029](functional/ADR-FN-029-basic-inventory-stock-levels.md) | Basic Inventory & Stock Levels | Accepted | P2 |
 
 ### Non-Functional ADRs (20)
 
@@ -62,7 +67,7 @@ This directory contains Architecture Decision Records for the B2B maritime ship 
 | [ADR-NF-019](non-functional/ADR-NF-019-observability-stack.md) | Observability Stack | Accepted | P1 |
 | [ADR-NF-020](non-functional/ADR-NF-020-cicd-pipeline-design.md) | CI/CD Pipeline Design | Accepted | P1 |
 
-### UI ADRs (16)
+### UI ADRs (17)
 
 | ID | Title | Status | Priority |
 |----|-------|--------|----------|
@@ -82,6 +87,7 @@ This directory contains Architecture Decision Records for the B2B maritime ship 
 | [ADR-UI-014](ui/ADR-UI-014-portiq-supplier-experience.md) | **PortiQ Supplier Experience** | Accepted | P0 |
 | [ADR-UI-015](ui/ADR-UI-015-command-bar-voice-input.md) | **Command Bar & Voice Input** | Accepted | P0 |
 | [ADR-UI-016](ui/ADR-UI-016-proactive-intelligence.md) | **Proactive Intelligence & Notifications** | Accepted | P1 |
+| [ADR-UI-017](ui/ADR-UI-017-post-award-operational-ui.md) | **Post-Award Operational UI** | Accepted | P0 |
 
 #### PortiQ UX Notes
 The PortiQ AI-native UX specification (UI-013 through UI-016) introduces a **conversation-first paradigm** that supersedes traditional dashboard-based approaches:
@@ -117,28 +123,34 @@ Superseded ADRs are preserved for historical reference.
 | 2.2 | Catalog Extensibility | FN-005 | Done |
 | 2.3 | Consumption Prediction | FN-021 | Planned |
 
-### 3.x Orchestration (Done: 3.1, 3.2, 3.3, 3.4)
+### 3.x Orchestration (Done: 3.1, 3.2, 3.3, 3.4 | Planned: 3.5)
 | Phase | Name | ADRs | Status |
 |-------|------|------|--------|
 | 3.1 | Multi-tenancy | FN-023, NF-018 | Done |
 | 3.2 | Vendor Onboarding | FN-014, FN-015 | Done |
 | 3.3 | RFQ & Bidding | FN-011, FN-012 | Done |
 | 3.4 | TCO & Quote Comparison | FN-013 | Done |
+| 3.5 | Basic Inventory | FN-029 | Planned |
 
-### 4.x Execution (Done: 4.1, 4.2, 4.3)
+### 4.x Execution (Done: 4.1, 4.2, 4.3 | Planned: 4.4, 4.5, 4.6)
 | Phase | Name | ADRs | Status |
 |-------|------|------|--------|
 | 4.1 | Order Lifecycle | FN-022, NF-005 | Done |
 | 4.2 | Document Pipeline | FN-006, FN-007 | Done |
 | 4.3 | AI Quality Control | FN-008, FN-009, FN-010 | Done |
+| 4.4 | Order Implementation | FN-022 | Planned |
+| 4.5 | Delivery & POD | FN-025 | Planned |
+| 4.6 | Dispute Resolution | FN-026 | Planned |
 
 ### 5.x Settlement (Planned)
 | Phase | Name | ADRs | Status |
 |-------|------|------|--------|
 | 5.1 | Embedded Finance | FN-016, FN-017 | Planned |
 | 5.2 | TReDS Integration | FN-018 | Planned |
+| 5.3 | Settlement & Invoicing | FN-027 | Planned |
+| 5.4 | Data Export | FN-028 | Planned |
 
-### 6.x User Experience (Done: 6.1, 6.2, 6.5, 6.6 | Superseded: 6.3)
+### 6.x User Experience (Done: 6.1, 6.2, 6.5, 6.6 | Superseded: 6.3 | Planned: 6.7)
 | Phase | Name | ADRs | Status |
 |-------|------|------|--------|
 | 6.1 | Web Foundation | UI-001, UI-002 | Done |
@@ -147,6 +159,7 @@ Superseded ADRs are preserved for historical reference.
 | 6.4 | Mobile Foundation | UI-006, UI-007 | Planned |
 | 6.5 | State & Theming | UI-003, UI-009 | Done |
 | 6.6 | PortiQ AI Experience | UI-013, UI-014, UI-015, UI-016 | Done |
+| 6.7 | Post-Award UI | UI-017 | Planned |
 
 ### 7.x Hardening (Planned)
 | Phase | Name | ADRs | Status |
@@ -171,12 +184,18 @@ NF-006 (Monolith) ──> NF-007 (API) ──> All FN-* ADRs
 NF-001 (PostgreSQL) ──> NF-002 (pgvector) ──> FN-006 (Doc AI)
                    ──> NF-003 (Hybrid Search) ──> UI-015 (Command Bar)
                    ──> FN-002 (Product Model) ──> FN-001 (IMPA)
-NF-008 (Celery) ──> FN-011 (RFQ), FN-013 (TCO)
+NF-008 (Celery) ──> FN-011 (RFQ), FN-013 (TCO), FN-028 (Export)
 NF-011 (AWS) ──> NF-012 (Fargate), NF-013 (S3)
+NF-013 (S3) ──> FN-025 (Delivery Photos), FN-028 (Export Files)
 UI-001 (Next.js) ──> UI-002 (shadcn) ──> UI-013 (PortiQ Buyer)
                                      ──> UI-014 (PortiQ Supplier)
+                                     ──> UI-017 (Post-Award UI)
 UI-013 (Buyer) ──> UI-015 (Command Bar) ──> UI-016 (Proactive Intel)
 UI-006 (React Native) ──> UI-007 (Offline) ──> UI-008 (Caching)
+FN-022 (Order) ──> FN-025 (Delivery) ──> FN-026 (Disputes)
+                                     ──> FN-027 (Settlement)
+FN-002 (Product) ──> FN-029 (Inventory)
+FN-014 (Supplier) ──> FN-029 (Inventory)
 ```
 
 ---

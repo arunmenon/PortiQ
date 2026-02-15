@@ -10,12 +10,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database.session import get_db
 from src.exceptions import ForbiddenException
-from src.models.enums import AisProvider, VesselStatus, VesselType
+from src.models.enums import AisProvider, PortCallStatus, VesselStatus, VesselType
 from src.modules.tenancy.auth import AuthenticatedUser, get_current_user
 from src.modules.vessel.schemas import (
     BulkImportRequest,
     BulkImportResponse,
+    ManualPortCallCreate,
+    PortCallListResponse,
     PortCallResponse,
+    PortCallUpdate,
     PositionResponse,
     ProviderHealthResponse,
     TaskEnqueuedResponse,
@@ -94,6 +97,66 @@ async def check_provider_health(
                 message=str(exc),
             ))
     return results
+
+
+# ---------------------------------------------------------------------------
+# Port Call CRUD (manual creation)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/port-calls", response_model=PortCallResponse, status_code=201)
+async def create_port_call(
+    body: ManualPortCallCreate,
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    tracking = TrackingService(session)
+    port_call = await tracking.create_manual_port_call(body)
+    return port_call
+
+
+@router.get("/port-calls", response_model=PortCallListResponse)
+async def list_port_calls(
+    vessel_id: uuid.UUID | None = Query(None),
+    port_code: str | None = Query(None),
+    status: PortCallStatus | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    tracking = TrackingService(session)
+    items, total = await tracking.list_port_calls(
+        vessel_id=vessel_id,
+        port_code=port_code,
+        status=status,
+        limit=limit,
+        offset=offset,
+    )
+    return PortCallListResponse(items=items, total=total, limit=limit, offset=offset)
+
+
+@router.get("/port-calls/{port_call_id}", response_model=PortCallResponse)
+async def get_port_call(
+    port_call_id: uuid.UUID,
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    tracking = TrackingService(session)
+    port_call = await tracking.get_port_call(port_call_id)
+    return port_call
+
+
+@router.put("/port-calls/{port_call_id}", response_model=PortCallResponse)
+async def update_port_call(
+    port_call_id: uuid.UUID,
+    body: PortCallUpdate,
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    tracking = TrackingService(session)
+    port_call = await tracking.update_port_call(port_call_id, body)
+    return port_call
 
 
 # ---------------------------------------------------------------------------

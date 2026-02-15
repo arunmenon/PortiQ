@@ -143,6 +143,31 @@ class PortCallCreate(BaseModel):
     source: AisProvider | None = None
 
 
+class ManualPortCallCreate(BaseModel):
+    """Schema for manual port call creation via the API."""
+
+    vessel_id: uuid.UUID
+    port_code: str = Field(..., max_length=10)
+    port_name: str | None = Field(None, max_length=255)
+    eta: datetime
+    berth: str | None = Field(None, max_length=100)
+    previous_port_code: str | None = Field(None, max_length=10)
+    next_port_code: str | None = Field(None, max_length=10)
+
+
+class PortCallUpdate(BaseModel):
+    """Schema for updating a port call."""
+
+    vessel_id: uuid.UUID | None = None
+    port_code: str | None = Field(None, max_length=10)
+    port_name: str | None = Field(None, max_length=255)
+    eta: datetime | None = None
+    berth: str | None = Field(None, max_length=100)
+    previous_port_code: str | None = Field(None, max_length=10)
+    next_port_code: str | None = Field(None, max_length=10)
+    status: PortCallStatus | None = None
+
+
 class PortCallResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -162,6 +187,13 @@ class PortCallResponse(BaseModel):
     raw_data: dict | None
     created_at: datetime
     updated_at: datetime
+
+
+class PortCallListResponse(BaseModel):
+    items: list[PortCallResponse]
+    total: int
+    limit: int
+    offset: int
 
 
 # ---------------------------------------------------------------------------

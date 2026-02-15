@@ -69,6 +69,17 @@ ADRs are located at `/Ship/adr/`:
 - **Mobile**: React Native with Expo
 - **Cloud**: AWS Mumbai (ap-south-1)
 
-## Agent Teams Plan
-For full Agent Teams configuration and workflows, see:
-`/Users/arunmenon/.claude/plans/twinkly-squishing-zephyr.md`
+## Agent Teams
+
+Enabled in `.claude/settings.json`. Six custom agents defined in `.claude/agents/`:
+
+| Agent | Role | Owns |
+|-------|------|------|
+| `backend-engineer` | FastAPI modules, services, routes | `src/modules/` |
+| `database-engineer` | Models, migrations, RLS | `src/models/`, `alembic/` |
+| `frontend-engineer` | Next.js UI, components | `apps/web/` |
+| `test-engineer` | pytest suites, coverage | `tests/` |
+| `reviewer` | Security, ADR compliance review | Read-only |
+| `researcher` | Codebase exploration, gap analysis | Read-only |
+
+Full guide: `docs/AGENT_TEAMS_GUIDE.md`

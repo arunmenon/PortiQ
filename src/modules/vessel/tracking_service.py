@@ -6,10 +6,12 @@ import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.exceptions import ValidationException
+from typing import TYPE_CHECKING
+
+from src.exceptions import NotFoundException, ValidationException
 from src.models.enums import AisProvider, NavigationStatus, PortCallStatus
 from src.models.port_call import PortCall
 from src.models.vessel_position import VesselPosition
@@ -19,6 +21,9 @@ from src.modules.vessel.constants import (
     MIN_SIGNAL_CONFIDENCE,
     VESSEL_EVENT_TYPES,
 )
+
+if TYPE_CHECKING:
+    from src.modules.vessel.schemas import ManualPortCallCreate, PortCallUpdate
 
 
 class TrackingService:
@@ -202,6 +207,88 @@ class TrackingService:
                 },
             )
 
+        return port_call
+
+    # ------------------------------------------------------------------
+    # Manual port call CRUD
+    # ------------------------------------------------------------------
+
+    async def create_manual_port_call(
+        self,
+        data: ManualPortCallCreate,
+    ) -> PortCall:
+        port_call = PortCall(
+            vessel_id=data.vessel_id,
+            port_code=data.port_code,
+            port_name=data.port_name,
+            eta=data.eta,
+            berth=data.berth,
+            status=PortCallStatus.APPROACHING,
+            source=AisProvider.MANUAL,
+            raw_data={},
+        )
+        self.session.add(port_call)
+        await self.session.flush()
+        return port_call
+
+    async def update_port_call(
+        self,
+        port_call_id: uuid.UUID,
+        data: PortCallUpdate,
+    ) -> PortCall:
+        result = await self.session.execute(
+            select(PortCall).where(PortCall.id == port_call_id)
+        )
+        port_call = result.scalar_one_or_none()
+        if port_call is None:
+            raise NotFoundException(f"Port call {port_call_id} not found")
+
+        update_data = data.model_dump(exclude_unset=True)
+        model_fields = {c.key for c in PortCall.__table__.columns}
+        for field, value in update_data.items():
+            if field in model_fields:
+                setattr(port_call, field, value)
+
+        await self.session.flush()
+        return port_call
+
+    async def list_port_calls(
+        self,
+        vessel_id: uuid.UUID | None = None,
+        port_code: str | None = None,
+        status: PortCallStatus | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[PortCall], int]:
+        query = select(PortCall)
+        count_query = select(func.count()).select_from(PortCall)
+
+        if vessel_id is not None:
+            query = query.where(PortCall.vessel_id == vessel_id)
+            count_query = count_query.where(PortCall.vessel_id == vessel_id)
+        if port_code is not None:
+            query = query.where(PortCall.port_code == port_code)
+            count_query = count_query.where(PortCall.port_code == port_code)
+        if status is not None:
+            query = query.where(PortCall.status == status)
+            count_query = count_query.where(PortCall.status == status)
+
+        total_result = await self.session.execute(count_query)
+        total = total_result.scalar_one()
+
+        query = query.order_by(PortCall.created_at.desc()).limit(limit).offset(offset)
+        result = await self.session.execute(query)
+        items = list(result.scalars().all())
+
+        return items, total
+
+    async def get_port_call(self, port_call_id: uuid.UUID) -> PortCall:
+        result = await self.session.execute(
+            select(PortCall).where(PortCall.id == port_call_id)
+        )
+        port_call = result.scalar_one_or_none()
+        if port_call is None:
+            raise NotFoundException(f"Port call {port_call_id} not found")
         return port_call
 
     async def get_active_port_calls(self, vessel_id: uuid.UUID) -> list[PortCall]:

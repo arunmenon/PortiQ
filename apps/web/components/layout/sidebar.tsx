@@ -15,6 +15,10 @@ import {
   Users,
   FileText,
   ShoppingCart,
+  Truck,
+  Receipt,
+  AlertTriangle,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -29,6 +33,10 @@ const navigation = [
   { name: "Suppliers", href: "/suppliers", icon: Users },
   { name: "RFQs", href: "/rfqs", icon: FileText },
   { name: "Orders", href: "/orders", icon: ShoppingCart },
+  { name: "Deliveries", href: "/deliveries", icon: Truck },
+  { name: "Invoices", href: "/invoices", icon: Receipt },
+  { name: "Disputes", href: "/disputes", icon: AlertTriangle },
+  { name: "Settlements", href: "/settlements", icon: Wallet },
 ];
 
 export function Sidebar() {

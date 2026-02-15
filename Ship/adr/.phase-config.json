@@ -288,6 +288,78 @@
         "Backfill and Reprocessing Plan addressed (ADR-FN-010)"
       ]
     },
+    "3.5": {
+      "name": "Basic Inventory",
+      "description": "Simple stock level tracking per supplier per product with movement audit log",
+      "visionLayer": "Orchestration",
+      "adrs": [
+        "FN-029"
+      ],
+      "validationChecklist": [
+        "stock_levels table with per-supplier-per-product quantities (ADR-FN-029)",
+        "stock_movements audit log for all changes (ADR-FN-029)",
+        "Generated columns: is_in_stock, is_low_stock (ADR-FN-029)",
+        "Manual stock update API with movement logging (ADR-FN-029)",
+        "Bulk update endpoint (CSV + JSON) (ADR-FN-029)",
+        "Low-stock alert endpoint (ADR-FN-029)",
+        "Auto-deduction on delivery acceptance event (ADR-FN-029)",
+        "Integration with supplier matching intelligence (ADR-FN-029)"
+      ]
+    },
+    "4.4": {
+      "name": "Order Implementation",
+      "description": "Full order lifecycle from RFQ award through fulfillment with status rollup",
+      "visionLayer": "Execution",
+      "adrs": [
+        "FN-022"
+      ],
+      "validationChecklist": [
+        "Order model hierarchy: Order → VendorOrder → Fulfillment → FulfillmentItem (ADR-FN-022)",
+        "OrderLineItem with quantity tracking (ordered, fulfilled, accepted) (ADR-FN-022)",
+        "Auto-create Order from RFQ Award (ADR-FN-022)",
+        "Order status rollup from vendor orders and fulfillments (ADR-FN-022)",
+        "Status transitions with audit trail (ADR-FN-022)",
+        "Partial fulfillment support (ADR-FN-022)",
+        "Cancellation matrix implementation (ADR-FN-022)",
+        "Domain events: order.created, fulfillment.created, fulfillment.delivered (ADR-FN-022)"
+      ]
+    },
+    "4.5": {
+      "name": "Delivery & POD",
+      "description": "Delivery tracking with GPS, photos, signatures, and SLA monitoring",
+      "visionLayer": "Execution",
+      "adrs": [
+        "FN-025"
+      ],
+      "validationChecklist": [
+        "Delivery model linked to fulfillments (ADR-FN-025)",
+        "Delivery items with quantity verification (ADR-FN-025)",
+        "GPS coordinate capture (latitude, longitude, accuracy) (ADR-FN-025)",
+        "Photo upload via S3 presigned URLs (ADR-FN-025)",
+        "Digital signature capture and S3 storage (ADR-FN-025)",
+        "SLA configuration per buyer-supplier pair (ADR-FN-025)",
+        "Delivery acceptance workflow (ADR-FN-025)",
+        "Dispute flagging from delivery acceptance (ADR-FN-025)",
+        "Domain events: delivery.created, delivery.recorded, delivery.accepted (ADR-FN-025)"
+      ]
+    },
+    "4.6": {
+      "name": "Dispute Resolution",
+      "description": "Structured dispute workflow with state machine, comment trail, and financial outcomes",
+      "visionLayer": "Execution",
+      "adrs": [
+        "FN-026"
+      ],
+      "validationChecklist": [
+        "Dispute entity with state machine: OPEN → UNDER_REVIEW → RESOLVED/ESCALATED (ADR-FN-026)",
+        "Comment trail with attachment support (ADR-FN-026)",
+        "State transition audit log (ADR-FN-026)",
+        "Financial outcome tracking (credit note, refund, replacement) (ADR-FN-026)",
+        "SLA enforcement with Celery-based reminders (ADR-FN-026)",
+        "Auto-escalation on SLA breach (ADR-FN-026)",
+        "Domain events: dispute.created, dispute.resolved, dispute.escalated (ADR-FN-026)"
+      ]
+    },
     "5.1": {
       "name": "Embedded Finance",
       "description": "Finance middleware and invoice processing",
@@ -316,6 +388,41 @@
         "TReDS integration for invoice discounting (ADR-FN-018)",
         "Certification and Onboarding Steps addressed (ADR-FN-018)",
         "Data Mapping and Reconciliation addressed (ADR-FN-018)"
+      ]
+    },
+    "5.3": {
+      "name": "Settlement & Invoicing",
+      "description": "Auto-generated invoices from delivery acceptance with reconciliation and settlement periods",
+      "visionLayer": "Settlement",
+      "adrs": [
+        "FN-027"
+      ],
+      "validationChecklist": [
+        "Auto-generate invoice from accepted delivery (ADR-FN-027)",
+        "Invoice line items from delivery items with pricing (ADR-FN-027)",
+        "Credit adjustments from resolved disputes (ADR-FN-027)",
+        "Invoice status workflow: DRAFT → READY → SENT → ACKNOWLEDGED → PAID (ADR-FN-027)",
+        "Reconciliation view: ordered vs delivered vs accepted vs invoiced (ADR-FN-027)",
+        "Settlement period aggregation (per port call, weekly, monthly) (ADR-FN-027)",
+        "Domain events: invoice.generated, invoice.paid, settlement.closed (ADR-FN-027)"
+      ]
+    },
+    "5.4": {
+      "name": "Data Export",
+      "description": "CSV, Excel, and PDF export with async processing for large datasets",
+      "visionLayer": "Settlement",
+      "adrs": [
+        "FN-028"
+      ],
+      "validationChecklist": [
+        "Export job tracking table (ADR-FN-028)",
+        "CSV export using stdlib csv module (ADR-FN-028)",
+        "Excel export using openpyxl (ADR-FN-028)",
+        "PDF export using weasyprint (ADR-FN-028)",
+        "Async export via Celery for large datasets (>1000 rows) (ADR-FN-028)",
+        "S3 storage with presigned download URLs (ADR-FN-028)",
+        "7-day TTL with S3 lifecycle policy (ADR-FN-028)",
+        "Inline invoice PDF (synchronous, single document) (ADR-FN-028)"
       ]
     },
     "6.1": {
@@ -435,6 +542,27 @@
         "Restocking alerts and anomaly detection (ADR-UI-016)",
         "PortiQ Suggests cards with actionable recommendations (ADR-UI-016)",
         "Target: Zero-click completions > 40% (ADR-UI-016)"
+      ]
+    },
+    "6.7": {
+      "name": "Post-Award UI",
+      "description": "Order, delivery, invoice, dispute, and inventory pages for buyer and supplier portals",
+      "visionLayer": "User Experience",
+      "adrs": [
+        "UI-017"
+      ],
+      "validationChecklist": [
+        "Buyer order list and detail pages (ADR-UI-017)",
+        "Supplier order list and detail pages — replace 'Coming Soon' (ADR-UI-017)",
+        "Supplier delivery submission page (mobile-first: GPS, photos, signature) (ADR-UI-017)",
+        "Buyer delivery list, detail, and acceptance pages (ADR-UI-017)",
+        "Buyer invoice list and detail with reconciliation view (ADR-UI-017)",
+        "Supplier invoice list page (ADR-UI-017)",
+        "Buyer settlement dashboard (ADR-UI-017)",
+        "Buyer dispute list and detail with comment trail (ADR-UI-017)",
+        "Supplier inventory dashboard with low-stock alerts (ADR-UI-017)",
+        "Export buttons on invoice and settlement pages (ADR-UI-017)",
+        "Shared components: StatusBadge, QuantityComparison, TimelineTracker, SignatureCanvas (ADR-UI-017)"
       ]
     },
     "7.1": {

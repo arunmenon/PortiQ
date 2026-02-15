@@ -11,6 +11,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Anchor,
+  Truck,
+  Receipt,
+  PackageOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -20,6 +23,9 @@ const navigation = [
   { name: "Dashboard", href: "/supplier", icon: LayoutDashboard },
   { name: "RFQ Opportunities", href: "/supplier/rfqs", icon: FileText },
   { name: "Orders", href: "/supplier/orders", icon: ShoppingCart },
+  { name: "Deliveries", href: "/supplier/deliveries", icon: Truck },
+  { name: "Invoices", href: "/supplier/invoices", icon: Receipt },
+  { name: "Inventory", href: "/supplier/inventory", icon: PackageOpen },
   { name: "Profile", href: "/supplier/profile", icon: UserCircle },
 ];
 

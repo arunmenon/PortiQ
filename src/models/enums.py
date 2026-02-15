@@ -265,3 +265,205 @@ class TcoTemplateType(str, enum.Enum):
     STRATEGIC = "STRATEGIC"
     QUALITY_CRITICAL = "QUALITY_CRITICAL"
     CUSTOM = "CUSTOM"
+
+
+# ── Phase 4.4-4.6: Order, Delivery, Disputes ────────────────────────────────
+
+
+class OrderStatus(str, enum.Enum):
+    PENDING_PAYMENT = "PENDING_PAYMENT"
+    CONFIRMED = "CONFIRMED"
+    PROCESSING = "PROCESSING"
+    PARTIALLY_FULFILLED = "PARTIALLY_FULFILLED"
+    FULFILLED = "FULFILLED"
+    COMPLETED = "COMPLETED"
+    CANCELLED = "CANCELLED"
+    DISPUTED = "DISPUTED"
+
+
+class VendorOrderStatus(str, enum.Enum):
+    PENDING_CONFIRMATION = "PENDING_CONFIRMATION"
+    CONFIRMED = "CONFIRMED"
+    PREPARING = "PREPARING"
+    READY_FOR_PICKUP = "READY_FOR_PICKUP"
+    IN_TRANSIT = "IN_TRANSIT"
+    DELIVERED = "DELIVERED"
+    FULFILLED = "FULFILLED"
+    CANCELLED = "CANCELLED"
+    DISPUTED = "DISPUTED"
+
+
+class FulfillmentStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    PICKING = "PICKING"
+    PACKED = "PACKED"
+    SHIPPED = "SHIPPED"
+    IN_TRANSIT = "IN_TRANSIT"
+    OUT_FOR_DELIVERY = "OUT_FOR_DELIVERY"
+    DELIVERED = "DELIVERED"
+    ACCEPTED = "ACCEPTED"
+    REJECTED = "REJECTED"
+    PARTIALLY_ACCEPTED = "PARTIALLY_ACCEPTED"
+
+
+class FulfillmentLineItemStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    ALLOCATED = "ALLOCATED"
+    PICKED = "PICKED"
+    PACKED = "PACKED"
+    SHIPPED = "SHIPPED"
+    DELIVERED = "DELIVERED"
+    ACCEPTED = "ACCEPTED"
+    REJECTED = "REJECTED"
+    BACKORDERED = "BACKORDERED"
+    CANCELLED = "CANCELLED"
+
+
+class DeliveryStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    DISPATCHED = "DISPATCHED"
+    IN_TRANSIT = "IN_TRANSIT"
+    ARRIVED = "ARRIVED"
+    DELIVERED = "DELIVERED"
+    ACCEPTED = "ACCEPTED"
+    DISPUTED = "DISPUTED"
+    CANCELLED = "CANCELLED"
+
+
+class DeliveryItemStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    DELIVERED = "DELIVERED"
+    ACCEPTED = "ACCEPTED"
+    PARTIALLY_ACCEPTED = "PARTIALLY_ACCEPTED"
+    REJECTED = "REJECTED"
+    DISPUTED = "DISPUTED"
+
+
+class DeliveryPhotoType(str, enum.Enum):
+    DELIVERY = "DELIVERY"
+    DAMAGE = "DAMAGE"
+    PACKAGING = "PACKAGING"
+    QUANTITY = "QUANTITY"
+    DISPUTE = "DISPUTE"
+
+
+class DeliveryType(str, enum.Enum):
+    ALONGSIDE = "ALONGSIDE"
+    WAREHOUSE = "WAREHOUSE"
+    AGENT = "AGENT"
+    ANCHORAGE = "ANCHORAGE"
+
+
+class DisputeType(str, enum.Enum):
+    QUANTITY_SHORTAGE = "QUANTITY_SHORTAGE"
+    QUALITY_ISSUE = "QUALITY_ISSUE"
+    WRONG_PRODUCT = "WRONG_PRODUCT"
+    DAMAGED_GOODS = "DAMAGED_GOODS"
+    PRICE_DISPUTE = "PRICE_DISPUTE"
+    LATE_DELIVERY = "LATE_DELIVERY"
+    OTHER = "OTHER"
+
+
+class DisputeStatus(str, enum.Enum):
+    OPEN = "OPEN"
+    UNDER_REVIEW = "UNDER_REVIEW"
+    AWAITING_SUPPLIER = "AWAITING_SUPPLIER"
+    AWAITING_BUYER = "AWAITING_BUYER"
+    RESOLVED = "RESOLVED"
+    ESCALATED = "ESCALATED"
+    CLOSED = "CLOSED"
+
+
+class DisputePriority(str, enum.Enum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
+
+
+class DisputeResolutionType(str, enum.Enum):
+    CREDIT_NOTE = "CREDIT_NOTE"
+    REFUND = "REFUND"
+    REPLACEMENT = "REPLACEMENT"
+    PRICE_ADJUSTMENT = "PRICE_ADJUSTMENT"
+    NO_ACTION = "NO_ACTION"
+    SPLIT = "SPLIT"
+
+
+# ── Phase 5.3-5.4: Settlement, Invoicing, Export ────────────────────────────────
+
+
+class InvoiceStatus(str, enum.Enum):
+    DRAFT = "DRAFT"
+    READY = "READY"
+    SENT = "SENT"
+    ACKNOWLEDGED = "ACKNOWLEDGED"
+    DISPUTED = "DISPUTED"
+    PAID = "PAID"
+    CANCELLED = "CANCELLED"
+    CREDIT_NOTE = "CREDIT_NOTE"
+
+
+class SettlementPeriodType(str, enum.Enum):
+    PORT_CALL = "PORT_CALL"
+    WEEKLY = "WEEKLY"
+    MONTHLY = "MONTHLY"
+
+
+class SettlementPeriodStatus(str, enum.Enum):
+    OPEN = "OPEN"
+    CLOSED = "CLOSED"
+    RECONCILED = "RECONCILED"
+
+
+class ExportType(str, enum.Enum):
+    INVOICES = "INVOICES"
+    ORDERS = "ORDERS"
+    DELIVERIES = "DELIVERIES"
+    SETTLEMENTS = "SETTLEMENTS"
+    INVOICE_SINGLE = "INVOICE_SINGLE"
+    DELIVERY_REPORT = "DELIVERY_REPORT"
+
+
+class ExportFormat(str, enum.Enum):
+    CSV = "CSV"
+    XLSX = "XLSX"
+    PDF = "PDF"
+
+
+class ExportJobStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    EXPIRED = "EXPIRED"
+
+
+# ── Phase 2.1: Port Call Demand Planning ────────────────────────────────
+
+
+class RequirementCategory(str, enum.Enum):
+    PROVISIONS = "PROVISIONS"
+    TECHNICAL = "TECHNICAL"
+    SAFETY = "SAFETY"
+    DECK = "DECK"
+    ENGINE = "ENGINE"
+    CABIN = "CABIN"
+    SERVICES = "SERVICES"
+    COMPLIANCE = "COMPLIANCE"
+    OTHER = "OTHER"
+
+
+class RequirementPriority(str, enum.Enum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
+
+
+class RequirementStatus(str, enum.Enum):
+    DRAFT = "DRAFT"
+    CONFIRMED = "CONFIRMED"
+    RFQ_CREATED = "RFQ_CREATED"
+    FULFILLED = "FULFILLED"
+    CANCELLED = "CANCELLED"
